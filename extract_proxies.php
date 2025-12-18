@@ -2,62 +2,58 @@
 declare(strict_types=1);
 
 /**
- * Telegram Proxy Scanner & Dashboard - 2025 Edition
- * 
- * Logic:
- * 1. Checks if extraction is needed (Cache expired or manual trigger).
- * 2. Scans Telegram channels in parallel.
- * 3. Extracts proxy links.
- * 4. Checks connectivity (Server-side).
- * 5. Saves to JSON.
- * 6. Loads the View.
+ * Telegram Proxy Scanner - Static Generator Edition
+ * Fixed for GitHub Actions & Pages
  */
 
 // --- Configuration ---
 const CONFIG = [
     'input_file'      => 'usernames.json',
     'output_json'     => 'extracted_proxies.json',
-    'cache_duration'  => 3600, // 1 Hour in seconds
-    'socket_timeout'  => 3,    // Fast timeout for server-side check
-    'batch_size'      => 50,   // Check proxies in batches to save memory
+    'output_html'     => 'index.html', // We must save to this file
+    'cache_duration'  => 3600,
+    'socket_timeout'  => 2,
+    'batch_size'      => 50,
 ];
 
 class ProxyScanner {
     private array $userAgents = [
         'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-        'Mozilla/5.0 (Macintosh; Intel Mac OS X 14_2) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
     ];
 
     public function run(): array {
+        echo "Starting Scan...\n";
         $usernames = $this->loadUsernames();
-        if (empty($usernames)) return [];
+        if (empty($usernames)) {
+            echo "No usernames found in " . CONFIG['input_file'] . "\n";
+            return [];
+        }
 
-        // 1. Fetch HTML
+        echo "Fetching " . count($usernames) . " channels...\n";
         $rawHtml = $this->fetchChannels($usernames);
         
-        // 2. Extract
+        echo "Extracting proxies...\n";
         $proxies = $this->extractProxies($rawHtml);
         
-        // 3. Check Connectivity (Server Side)
+        echo "Checking connectivity for " . count($proxies) . " proxies...\n";
         $checkedProxies = $this->checkConnectivity($proxies);
         
-        // 4. Sort (Online first, then by latency)
+        // Sort: Online first, then by latency
         usort($checkedProxies, function ($a, $b) {
             if ($a['status'] === 'Online' && $b['status'] !== 'Online') return -1;
             if ($a['status'] !== 'Online' && $b['status'] === 'Online') return 1;
             return ($a['latency'] ?? 9999) <=> ($b['latency'] ?? 9999);
         });
 
-        // 5. Save
+        // Save JSON
         file_put_contents(CONFIG['output_json'], json_encode($checkedProxies, JSON_PRETTY_PRINT));
+        echo "Saved JSON to " . CONFIG['output_json'] . "\n";
         
         return $checkedProxies;
     }
 
     private function loadUsernames(): array {
-        if (!file_exists(CONFIG['input_file'])) {
-            return [];
-        }
+        if (!file_exists(CONFIG['input_file'])) return [];
         $data = json_decode(file_get_contents(CONFIG['input_file']), true);
         return is_array($data) ? $data : [];
     }
@@ -93,7 +89,6 @@ class ProxyScanner {
             curl_close($ch);
         }
         curl_multi_close($mh);
-
         return $results;
     }
 
@@ -106,11 +101,8 @@ class ProxyScanner {
                 foreach ($matches[0] as $fullUrl) {
                     $parsed = parse_url($fullUrl);
                     if (!isset($parsed['query'])) continue;
-                    
                     parse_str(html_entity_decode($parsed['query']), $query);
-                    
                     if (isset($query['server'], $query['port'], $query['secret'])) {
-                        // Create unique key to deduplicate
                         $key = $query['server'] . ':' . $query['port'];
                         $found[$key] = [
                             'server' => trim($query['server']),
@@ -132,14 +124,9 @@ class ProxyScanner {
         foreach ($chunks as $chunk) {
             $sockets = [];
             $map = [];
-            
             foreach ($chunk as $idx => $proxy) {
                 $address = "tcp://{$proxy['server']}:{$proxy['port']}";
-                $s = @stream_socket_client(
-                    $address, $errno, $errstr, 0, 
-                    STREAM_CLIENT_ASYNC_CONNECT | STREAM_CLIENT_CONNECT
-                );
-                
+                $s = @stream_socket_client($address, $errno, $errstr, 0, STREAM_CLIENT_ASYNC_CONNECT | STREAM_CLIENT_CONNECT);
                 if ($s) {
                     $sockets[$idx] = $s;
                     $map[$idx] = ['proxy' => $proxy, 'start' => microtime(true)];
@@ -150,32 +137,25 @@ class ProxyScanner {
                 }
             }
 
-            // Wait for connections
             $timeout = CONFIG['socket_timeout'];
             $startWait = microtime(true);
             
             while (!empty($sockets) && (microtime(true) - $startWait) < $timeout) {
                 $read = $write = $sockets;
                 $except = null;
-                
                 if (stream_select($read, $write, $except, 0, 200000) > 0) {
-                    // Check writable sockets (connection successful)
                     foreach ($write as $id => $sock) {
                         $info = $map[$id];
                         $latency = round((microtime(true) - $info['start']) * 1000);
-                        
                         $p = $info['proxy'];
                         $p['status'] = 'Online';
                         $p['latency'] = $latency;
                         $results[] = $p;
-                        
                         fclose($sock);
                         unset($sockets[$id]);
                     }
                 }
             }
-
-            // Clean up timeouts
             foreach ($sockets as $id => $sock) {
                 $p = $map[$id]['proxy'];
                 $p['status'] = 'Offline';
@@ -190,18 +170,19 @@ class ProxyScanner {
 
 // --- Controller Logic ---
 
+// Determine if we are running in CLI (GitHub Actions)
+$isCli = (php_sapi_name() === 'cli');
+
+// Determine if we should scan
 $shouldScan = false;
 $lastScanTime = file_exists(CONFIG['output_json']) ? filemtime(CONFIG['output_json']) : 0;
 $timeDiff = time() - $lastScanTime;
 
-// Scan if file missing, cache expired, or manually requested
-if (!file_exists(CONFIG['output_json']) || $timeDiff > CONFIG['cache_duration'] || isset($_GET['scan'])) {
+if ($isCli || !file_exists(CONFIG['output_json']) || $timeDiff > CONFIG['cache_duration'] || isset($_GET['scan'])) {
     $shouldScan = true;
 }
 
 if ($shouldScan) {
-    // If scanning, we can output a loading state or just run inline. 
-    // Ideally this is run via Cron, but for this script we run inline.
     $scanner = new ProxyScanner();
     $proxies = $scanner->run();
     $lastScanTime = time();
@@ -209,11 +190,29 @@ if ($shouldScan) {
     $proxies = json_decode(file_get_contents(CONFIG['output_json']), true);
 }
 
-// Prepare data for View
+// Prepare Data for Template
 $onlineCount = count(array_filter($proxies, fn($p) => $p['status'] === 'Online'));
 $totalCount = count($proxies);
-$lastUpdateStr = date('H:i:s', $lastScanTime);
+$lastUpdateStr = date('H:i:s Y-m-d', $lastScanTime);
 
-// Render View
+// --- RENDER AND SAVE ---
+
+// 1. Start Output Buffering
+ob_start();
+
+// 2. Load the Template (it will echo into the buffer)
 require 'template.phtml';
+
+// 3. Get the contents
+$htmlContent = ob_get_clean();
+
+// 4. SAVE the index.html file (Crucial for GitHub Pages)
+file_put_contents(CONFIG['output_html'], $htmlContent);
+
+if ($isCli) {
+    echo "Successfully generated " . CONFIG['output_html'] . " (" . strlen($htmlContent) . " bytes)\n";
+} else {
+    // If accessed via browser, show the content
+    echo $htmlContent;
+}
 ?>
