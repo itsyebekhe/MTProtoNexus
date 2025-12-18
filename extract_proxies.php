@@ -2,8 +2,7 @@
 declare(strict_types=1);
 
 /**
- * Telegram Proxy Scanner - v2025
- * Features: Static Gen, Secret Detection, Smart Sorting
+ * Telegram Proxy Scanner - v2025.1 (Fix: Invalid Secret)
  */
 
 const CONFIG = [
@@ -17,7 +16,7 @@ const CONFIG = [
 
 class ProxyScanner {
     private array $userAgents = [
-        'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36',
     ];
 
     public function run(): array {
@@ -28,10 +27,10 @@ class ProxyScanner {
         $rawHtml = $this->fetchChannels($usernames);
         $proxies = $this->extractProxies($rawHtml);
         
-        echo "Checking " . count($proxies) . " proxies...\n";
+        echo "Found " . count($proxies) . " raw proxies. Checking connectivity...\n";
         $checkedProxies = $this->checkConnectivity($proxies);
         
-        // Smart Sort: Online > Latency > Secret Type
+        // Smart Sort: Online > Latency
         usort($checkedProxies, function ($a, $b) {
             if ($a['status'] === 'Online' && $b['status'] !== 'Online') return -1;
             if ($a['status'] !== 'Online' && $b['status'] === 'Online') return 1;
@@ -61,7 +60,8 @@ class ProxyScanner {
                 CURLOPT_FOLLOWLOCATION => true,
                 CURLOPT_TIMEOUT        => 10,
                 CURLOPT_USERAGENT      => $this->userAgents[array_rand($this->userAgents)],
-                CURLOPT_SSL_VERIFYPEER => false
+                CURLOPT_SSL_VERIFYPEER => false,
+                CURLOPT_ENCODING       => '' // Handle gzip
             ]);
             curl_multi_add_handle($mh, $ch);
             $handles[$user] = $ch;
@@ -84,35 +84,71 @@ class ProxyScanner {
 
     private function extractProxies(array $htmlContents): array {
         $found = [];
-        $regex = '/(?:https?:\/\/t\.me\/proxy\?|tg:\/\/proxy\?)([^"\'\s<>]+)/i';
+        // Regex looks for the whole tg:// link
+        $linkRegex = '/(?:tg:\/\/|https:\/\/t\.me\/)proxy\?([^"\'\s<>]+)/i';
 
         foreach ($htmlContents as $html) {
-            if (preg_match_all($regex, $html, $matches)) {
-                foreach ($matches[0] as $fullUrl) {
-                    $parsed = parse_url($fullUrl);
-                    if (!isset($parsed['query'])) continue;
-                    parse_str(html_entity_decode($parsed['query']), $query);
-                    if (isset($query['server'], $query['port'], $query['secret'])) {
-                        $key = $query['server'] . ':' . $query['port'];
-                        $secret = trim($query['secret']);
+            // Decode HTML entities first (&amp; -> &)
+            $cleanHtml = html_entity_decode($html);
+
+            if (preg_match_all($linkRegex, $cleanHtml, $matches)) {
+                foreach ($matches[1] as $queryString) {
+                    // Manual Parameter Extraction (More robust than parse_str)
+                    $server = $this->getParam($queryString, 'server');
+                    $port   = $this->getParam($queryString, 'port');
+                    $secret = $this->getParam($queryString, 'secret');
+
+                    if ($server && $port && $secret) {
+                        // Strict Secret Cleaning
+                        $secret = $this->cleanSecret($secret);
+                        if (!$secret) continue; // Skip if secret became invalid
+
+                        $key = "$server:$port";
                         
-                        // Detect Secret Type
+                        // Detect Type
                         $type = 'Standard';
-                        if (str_starts_with($secret, 'dd')) $type = 'Secured'; // Randomized
-                        if (str_starts_with($secret, 'ee')) $type = 'TLS';     // Fake TLS
+                        if (str_starts_with($secret, 'dd')) $type = 'Secured';
+                        if (str_starts_with($secret, 'ee')) $type = 'TLS';
 
                         $found[$key] = [
-                            'server' => trim($query['server']),
-                            'port'   => (int)$query['port'],
+                            'server' => $server,
+                            'port'   => (int)$port,
                             'secret' => $secret,
                             'type'   => $type,
-                            'tg_url' => "tg://proxy?server={$query['server']}&port={$query['port']}&secret={$secret}"
+                            // Rebuild URL cleanly to ensure validity
+                            'tg_url' => "tg://proxy?server={$server}&port={$port}&secret={$secret}"
                         ];
                     }
                 }
             }
         }
         return array_values($found);
+    }
+
+    /**
+     * Extracts a parameter value using regex to avoid parsing issues
+     */
+    private function getParam(string $query, string $name): ?string {
+        if (preg_match('/(?:^|&)' . $name . '=([^&]+)/', $query, $matches)) {
+            return trim(urldecode($matches[1]));
+        }
+        return null;
+    }
+
+    /**
+     * Validates and cleans the secret
+     */
+    private function cleanSecret(string $secret): ?string {
+        // Remove whitespace
+        $secret = trim($secret);
+        
+        // Allow only Hex characters (0-9, a-f)
+        // MTProto secrets are Hex. 
+        if (!preg_match('/^[0-9a-fA-F]+$/', $secret)) {
+            return null; 
+        }
+
+        return $secret;
     }
 
     private function checkConnectivity(array $proxies): array {
@@ -183,11 +219,10 @@ if ($shouldScan) {
     $proxies = json_decode(file_get_contents(CONFIG['output_json']), true);
 }
 
-// Data for Template
-$onlineProxies = array_filter($proxies, fn($p) => $p['status'] === 'Online');
-$onlineCount = count($onlineProxies);
+// Prepare View Data
+$onlineCount = count(array_filter($proxies, fn($p) => $p['status'] === 'Online'));
 $totalCount = count($proxies);
-$scanTimestamp = $lastScanTime; // Pass raw timestamp for JS
+$scanTimestamp = $lastScanTime;
 
 // Render
 ob_start();
@@ -195,6 +230,6 @@ require 'template.phtml';
 $htmlContent = ob_get_clean();
 file_put_contents(CONFIG['output_html'], $htmlContent);
 
-if ($isCli) echo "Generated index.html\n";
+if ($isCli) echo "Generated index.html with " . $onlineCount . " online proxies.\n";
 else echo $htmlContent;
 ?>
