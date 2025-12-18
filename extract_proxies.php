@@ -2,15 +2,14 @@
 declare(strict_types=1);
 
 /**
- * Telegram Proxy Scanner - Static Generator Edition
- * Fixed for GitHub Actions & Pages
+ * Telegram Proxy Scanner - v2025
+ * Features: Static Gen, Secret Detection, Smart Sorting
  */
 
-// --- Configuration ---
 const CONFIG = [
     'input_file'      => 'usernames.json',
     'output_json'     => 'extracted_proxies.json',
-    'output_html'     => 'index.html', // We must save to this file
+    'output_html'     => 'index.html',
     'cache_duration'  => 3600,
     'socket_timeout'  => 2,
     'batch_size'      => 50,
@@ -24,31 +23,22 @@ class ProxyScanner {
     public function run(): array {
         echo "Starting Scan...\n";
         $usernames = $this->loadUsernames();
-        if (empty($usernames)) {
-            echo "No usernames found in " . CONFIG['input_file'] . "\n";
-            return [];
-        }
+        if (empty($usernames)) return [];
 
-        echo "Fetching " . count($usernames) . " channels...\n";
         $rawHtml = $this->fetchChannels($usernames);
-        
-        echo "Extracting proxies...\n";
         $proxies = $this->extractProxies($rawHtml);
         
-        echo "Checking connectivity for " . count($proxies) . " proxies...\n";
+        echo "Checking " . count($proxies) . " proxies...\n";
         $checkedProxies = $this->checkConnectivity($proxies);
         
-        // Sort: Online first, then by latency
+        // Smart Sort: Online > Latency > Secret Type
         usort($checkedProxies, function ($a, $b) {
             if ($a['status'] === 'Online' && $b['status'] !== 'Online') return -1;
             if ($a['status'] !== 'Online' && $b['status'] === 'Online') return 1;
             return ($a['latency'] ?? 9999) <=> ($b['latency'] ?? 9999);
         });
 
-        // Save JSON
         file_put_contents(CONFIG['output_json'], json_encode($checkedProxies, JSON_PRETTY_PRINT));
-        echo "Saved JSON to " . CONFIG['output_json'] . "\n";
-        
         return $checkedProxies;
     }
 
@@ -104,11 +94,19 @@ class ProxyScanner {
                     parse_str(html_entity_decode($parsed['query']), $query);
                     if (isset($query['server'], $query['port'], $query['secret'])) {
                         $key = $query['server'] . ':' . $query['port'];
+                        $secret = trim($query['secret']);
+                        
+                        // Detect Secret Type
+                        $type = 'Standard';
+                        if (str_starts_with($secret, 'dd')) $type = 'Secured'; // Randomized
+                        if (str_starts_with($secret, 'ee')) $type = 'TLS';     // Fake TLS
+
                         $found[$key] = [
                             'server' => trim($query['server']),
                             'port'   => (int)$query['port'],
-                            'secret' => trim($query['secret']),
-                            'tg_url' => "tg://proxy?server={$query['server']}&port={$query['port']}&secret={$query['secret']}"
+                            'secret' => $secret,
+                            'type'   => $type,
+                            'tg_url' => "tg://proxy?server={$query['server']}&port={$query['port']}&secret={$secret}"
                         ];
                     }
                 }
@@ -168,17 +166,12 @@ class ProxyScanner {
     }
 }
 
-// --- Controller Logic ---
-
-// Determine if we are running in CLI (GitHub Actions)
+// --- Run ---
 $isCli = (php_sapi_name() === 'cli');
-
-// Determine if we should scan
 $shouldScan = false;
 $lastScanTime = file_exists(CONFIG['output_json']) ? filemtime(CONFIG['output_json']) : 0;
-$timeDiff = time() - $lastScanTime;
 
-if ($isCli || !file_exists(CONFIG['output_json']) || $timeDiff > CONFIG['cache_duration'] || isset($_GET['scan'])) {
+if ($isCli || !file_exists(CONFIG['output_json']) || (time() - $lastScanTime) > CONFIG['cache_duration'] || isset($_GET['scan'])) {
     $shouldScan = true;
 }
 
@@ -190,29 +183,18 @@ if ($shouldScan) {
     $proxies = json_decode(file_get_contents(CONFIG['output_json']), true);
 }
 
-// Prepare Data for Template
-$onlineCount = count(array_filter($proxies, fn($p) => $p['status'] === 'Online'));
+// Data for Template
+$onlineProxies = array_filter($proxies, fn($p) => $p['status'] === 'Online');
+$onlineCount = count($onlineProxies);
 $totalCount = count($proxies);
-$lastUpdateStr = date('H:i:s Y-m-d', $lastScanTime);
+$scanTimestamp = $lastScanTime; // Pass raw timestamp for JS
 
-// --- RENDER AND SAVE ---
-
-// 1. Start Output Buffering
+// Render
 ob_start();
-
-// 2. Load the Template (it will echo into the buffer)
 require 'template.phtml';
-
-// 3. Get the contents
 $htmlContent = ob_get_clean();
-
-// 4. SAVE the index.html file (Crucial for GitHub Pages)
 file_put_contents(CONFIG['output_html'], $htmlContent);
 
-if ($isCli) {
-    echo "Successfully generated " . CONFIG['output_html'] . " (" . strlen($htmlContent) . " bytes)\n";
-} else {
-    // If accessed via browser, show the content
-    echo $htmlContent;
-}
+if ($isCli) echo "Generated index.html\n";
+else echo $htmlContent;
 ?>
