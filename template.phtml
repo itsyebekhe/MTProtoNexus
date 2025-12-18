@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>MTProto Nexus | 2025</title>
+    <title>MTProto Nexus</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
     <script>
@@ -12,22 +12,18 @@
             theme: {
                 extend: {
                     colors: {
-                        dark: {
-                            900: '#0f172a',
-                            800: '#1e293b',
-                            700: '#334155',
-                        }
+                        dark: { 900: '#0f172a', 800: '#1e293b' },
+                        primary: { 500: '#06b6d4', 600: '#0891b2' } // Cyan
                     },
                     animation: {
-                        'blob': 'blob 7s infinite',
+                        'blob': 'blob 10s infinite',
                         'fade-in': 'fadeIn 0.5s ease-out forwards',
                     },
                     keyframes: {
                         blob: {
-                            '0%': { transform: 'translate(0px, 0px) scale(1)' },
+                            '0%, 100%': { transform: 'translate(0px, 0px) scale(1)' },
                             '33%': { transform: 'translate(30px, -50px) scale(1.1)' },
                             '66%': { transform: 'translate(-20px, 20px) scale(0.9)' },
-                            '100%': { transform: 'translate(0px, 0px) scale(1)' },
                         },
                         fadeIn: {
                             '0%': { opacity: '0', transform: 'translateY(10px)' },
@@ -39,130 +35,127 @@
         }
     </script>
     <style>
-        /* Glassmorphism Utilities */
-        .glass-panel {
-            background: rgba(30, 41, 59, 0.4);
-            backdrop-filter: blur(12px);
-            -webkit-backdrop-filter: blur(12px);
-            border: 1px solid rgba(255, 255, 255, 0.05);
-        }
-        .glass-card {
-            background: rgba(255, 255, 255, 0.03);
-            border: 1px solid rgba(255, 255, 255, 0.05);
-            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-        }
-        .glass-card:hover {
-            background: rgba(255, 255, 255, 0.07);
-            border-color: rgba(255, 255, 255, 0.1);
-            transform: translateY(-2px);
-        }
+        .glass-panel { background: rgba(30, 41, 59, 0.6); backdrop-filter: blur(12px); border: 1px solid rgba(255, 255, 255, 0.05); }
+        .glass-card { background: rgba(255, 255, 255, 0.03); border: 1px solid rgba(255, 255, 255, 0.05); transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
+        .glass-card:hover { background: rgba(255, 255, 255, 0.06); border-color: rgba(6, 182, 212, 0.3); transform: translateY(-3px); box-shadow: 0 10px 30px -10px rgba(6, 182, 212, 0.2); }
     </style>
 </head>
-<body class="bg-dark-900 text-slate-200 min-h-screen font-sans selection:bg-cyan-500 selection:text-white overflow-x-hidden">
+<body class="bg-dark-900 text-slate-200 min-h-screen font-sans selection:bg-primary-500 selection:text-white overflow-x-hidden">
 
-    <!-- Background Ambient Effects -->
+    <!-- Ambient Background -->
     <div class="fixed inset-0 z-0 overflow-hidden pointer-events-none">
-        <div class="absolute top-0 left-1/4 w-96 h-96 bg-purple-500/20 rounded-full mix-blend-screen filter blur-[100px] animate-blob"></div>
-        <div class="absolute top-0 right-1/4 w-96 h-96 bg-cyan-500/20 rounded-full mix-blend-screen filter blur-[100px] animate-blob animation-delay-2000"></div>
-        <div class="absolute -bottom-32 left-1/3 w-96 h-96 bg-blue-500/20 rounded-full mix-blend-screen filter blur-[100px] animate-blob animation-delay-4000"></div>
+        <div class="absolute top-[-10%] left-[-10%] w-[40rem] h-[40rem] bg-purple-500/10 rounded-full blur-[120px] animate-blob"></div>
+        <div class="absolute top-[20%] right-[-10%] w-[30rem] h-[30rem] bg-primary-500/10 rounded-full blur-[100px] animate-blob animation-delay-2000"></div>
     </div>
 
     <div class="relative z-10 container mx-auto px-4 py-8 md:py-12 max-w-7xl">
         
         <!-- Header -->
-        <header class="flex flex-col md:flex-row justify-between items-end mb-12 gap-6 animate-fade-in">
+        <header class="flex flex-col md:flex-row justify-between items-end mb-10 gap-6 animate-fade-in">
             <div>
-                <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-cyan-500/10 border border-cyan-500/20 text-cyan-400 text-xs font-bold tracking-wider uppercase mb-3">
+                <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary-500/10 border border-primary-500/20 text-primary-500 text-xs font-bold tracking-wider uppercase mb-3">
                     <span class="relative flex h-2 w-2">
-                      <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-cyan-400 opacity-75"></span>
-                      <span class="relative inline-flex rounded-full h-2 w-2 bg-cyan-500"></span>
+                      <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary-500 opacity-75"></span>
+                      <span class="relative inline-flex rounded-full h-2 w-2 bg-primary-500"></span>
                     </span>
-                    Live Dashboard
+                    Live Network Status
                 </div>
-                <h1 class="text-4xl md:text-6xl font-black text-transparent bg-clip-text bg-gradient-to-r from-white via-slate-200 to-slate-500 tracking-tight">
-                    MTProto<span class="text-cyan-500">.</span>Nexus
+                <h1 class="text-4xl md:text-5xl font-black text-transparent bg-clip-text bg-gradient-to-r from-white via-slate-200 to-slate-400">
+                    MTProto<span class="text-primary-500">.</span>Nexus
                 </h1>
-                <p class="mt-2 text-slate-400 text-lg">High-speed privacy gateways. Auto-updated.</p>
             </div>
 
-            <div class="flex items-center gap-4 glass-panel p-2 rounded-2xl">
-                <div class="text-right px-4 border-r border-slate-700/50">
-                    <div class="text-xs text-slate-500 font-medium uppercase">Proxies</div>
-                    <div class="text-2xl font-bold text-white"><?= $totalCount ?></div>
-                </div>
-                <div class="text-right px-4">
-                    <div class="text-xs text-slate-500 font-medium uppercase">Online</div>
+            <div class="flex items-center gap-4 glass-panel p-3 rounded-2xl">
+                <div class="px-4 border-r border-slate-700/50 text-right">
+                    <div class="text-xs text-slate-500 font-bold uppercase">Online</div>
                     <div class="text-2xl font-bold text-emerald-400"><?= $onlineCount ?></div>
                 </div>
-                <a href="?scan=1" class="group flex items-center justify-center w-12 h-12 rounded-xl bg-gradient-to-br from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-white shadow-lg shadow-cyan-500/20 transition-all">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="w-6 h-6 transition-transform group-hover:rotate-180" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                    </svg>
+                <div class="px-4 text-right">
+                    <div class="text-xs text-slate-500 font-bold uppercase">Total</div>
+                    <div class="text-2xl font-bold text-white"><?= $totalCount ?></div>
+                </div>
+                <a href="?scan=1" class="group flex items-center justify-center w-12 h-12 rounded-xl bg-primary-600 hover:bg-primary-500 text-white transition-all shadow-lg shadow-primary-500/20">
+                    <svg class="w-6 h-6 group-hover:rotate-180 transition-transform duration-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
                 </a>
             </div>
         </header>
 
-        <!-- Tools / Status -->
-        <div class="flex flex-col md:flex-row justify-between items-center mb-8 gap-4 animate-fade-in" style="animation-delay: 0.1s">
-            <div class="text-sm text-slate-400">
-                Last scan: <span class="text-slate-200 font-mono"><?= $lastUpdateStr ?></span>
+        <!-- Toolbar: Search & Export -->
+        <div class="flex flex-col md:flex-row gap-4 mb-8 animate-fade-in" style="animation-delay: 0.1s">
+            <!-- Search -->
+            <div class="relative flex-grow">
+                <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                    <svg class="h-5 w-5 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+                </div>
+                <input type="text" id="proxy-search" placeholder="Search by IP or Port..." 
+                       class="w-full pl-10 pr-4 py-3 bg-slate-800/50 border border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent text-slate-200 placeholder-slate-500 transition-all">
             </div>
-            <button id="client-check-btn" class="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 transition-colors border border-slate-700 font-medium text-sm">
-                <svg class="w-4 h-4 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
-                Check My Ping
+
+            <!-- Export -->
+            <button id="export-btn" class="flex items-center justify-center gap-2 px-6 py-3 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-xl text-slate-300 font-medium transition-all active:scale-95">
+                <svg class="w-5 h-5 text-primary-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3"></path></svg>
+                Export Online List
             </button>
         </div>
 
-        <!-- Bento Grid -->
+        <!-- Status Bar -->
+        <div class="flex justify-between items-center text-xs text-slate-500 mb-6 px-1">
+            <div id="result-count">Showing <?= count($proxies) ?> proxies</div>
+            <div class="font-mono">Updated <span id="time-ago" data-timestamp="<?= $scanTimestamp ?>">just now</span></div>
+        </div>
+
+        <!-- Grid -->
         <div id="proxy-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 pb-20">
             <?php foreach ($proxies as $index => $proxy): 
                 $isOnline = $proxy['status'] === 'Online';
-                $delay = min(($index * 0.05), 0.5); // Stagger animation cap
+                
+                // Color badges for Secret Type
+                $secretColor = match($proxy['type']) {
+                    'Secured' => 'text-yellow-400 bg-yellow-400/10 border-yellow-400/20',
+                    'TLS'     => 'text-purple-400 bg-purple-400/10 border-purple-400/20',
+                    default   => 'text-slate-400 bg-slate-400/10 border-slate-400/20'
+                };
             ?>
-            <div class="proxy-card glass-card rounded-2xl p-5 relative overflow-hidden group animate-fade-in <?= $isOnline ? 'is-online' : 'opacity-60 grayscale' ?>" 
-                 style="animation-delay: <?= $delay ?>s"
+            <div class="proxy-card glass-card rounded-2xl p-5 relative overflow-hidden group animate-fade-in <?= $isOnline ? 'is-online' : 'opacity-50 grayscale hover:grayscale-0' ?>" 
+                 style="animation-delay: <?= min($index * 0.03, 0.5) ?>s"
                  data-server="<?= $proxy['server'] ?>" 
                  data-port="<?= $proxy['port'] ?>" 
                  data-url="<?= htmlspecialchars($proxy['tg_url']) ?>">
                 
-                <!-- Status Dot -->
-                <div class="absolute top-4 right-4 flex items-center gap-2">
-                    <span class="text-xs font-bold tracking-wider <?= $isOnline ? 'text-emerald-500' : 'text-red-500' ?>">
-                        <?= strtoupper($proxy['status']) ?>
+                <!-- Status & Type Header -->
+                <div class="flex justify-between items-start mb-4">
+                    <span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider border <?= $secretColor ?>">
+                        <?= $proxy['type'] ?>
                     </span>
-                    <span class="relative flex h-2.5 w-2.5">
-                        <?php if($isOnline): ?>
-                            <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                        <?php endif; ?>
-                        <span class="relative inline-flex rounded-full h-2.5 w-2.5 <?= $isOnline ? 'bg-emerald-500' : 'bg-red-500' ?>"></span>
-                    </span>
+                    <div class="flex items-center gap-1.5">
+                        <span class="text-xs font-bold <?= $isOnline ? 'text-emerald-500' : 'text-red-500' ?>">
+                            <?= $isOnline ? $proxy['latency'].'ms' : 'OFF' ?>
+                        </span>
+                        <span class="relative flex h-2 w-2">
+                            <?php if($isOnline): ?><span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span><?php endif; ?>
+                            <span class="relative inline-flex rounded-full h-2 w-2 <?= $isOnline ? 'bg-emerald-500' : 'bg-red-500' ?>"></span>
+                        </span>
+                    </div>
                 </div>
 
                 <!-- Info -->
-                <div class="mt-2 mb-6">
-                    <div class="text-xs text-slate-500 uppercase tracking-widest font-semibold mb-1">Server</div>
-                    <div class="font-mono text-lg text-slate-200 truncate pr-16 select-all"><?= $proxy['server'] ?></div>
-                    <div class="flex items-center gap-2 mt-1">
-                        <span class="px-2 py-0.5 rounded bg-slate-800 border border-slate-700 text-xs text-slate-400 font-mono"><?= $proxy['port'] ?></span>
-                        <?php if($isOnline): ?>
-                            <span class="ping-badge flex items-center gap-1 text-xs text-cyan-400 font-medium">
-                                <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" /></svg>
-                                <span class="ping-value"><?= $proxy['latency'] ?></span>ms
-                            </span>
-                        <?php endif; ?>
+                <div class="mb-5">
+                    <div class="font-mono text-lg text-slate-200 truncate select-all" title="<?= $proxy['server'] ?>"><?= $proxy['server'] ?></div>
+                    <div class="text-sm text-slate-500 font-mono mt-0.5 flex items-center gap-2">
+                        <span>Port: <?= $proxy['port'] ?></span>
                     </div>
                 </div>
 
                 <!-- Actions -->
-                <div class="grid grid-cols-3 gap-2 mt-auto">
-                    <a href="<?= htmlspecialchars($proxy['tg_url']) ?>" class="col-span-1 flex items-center justify-center py-2 rounded-lg bg-emerald-500/10 hover:bg-emerald-500 text-emerald-500 hover:text-white border border-emerald-500/20 transition-all font-medium text-sm">
+                <div class="grid grid-cols-4 gap-2 mt-auto">
+                    <a href="<?= htmlspecialchars($proxy['tg_url']) ?>" class="col-span-2 flex items-center justify-center py-2 rounded-lg bg-emerald-500/10 hover:bg-emerald-500 text-emerald-500 hover:text-white border border-emerald-500/20 transition-all font-medium text-sm gap-1">
                         Connect
                     </a>
-                    <button class="col-span-1 copy-btn flex items-center justify-center py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 transition-all text-sm">
-                        Copy
+                    <button class="col-span-1 copy-btn flex items-center justify-center py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-400 border border-slate-700 transition-all">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>
                     </button>
-                    <button class="col-span-1 qr-btn flex items-center justify-center py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 transition-all">
-                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v1m6 11h2m-6 0h-2v4h2v-4zM6 6h6v6H6V6zm12 0h6v6h-6V6zm-6 12h6v6h-6v-6z" /></svg>
+                    <button class="col-span-1 qr-btn flex items-center justify-center py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-400 border border-slate-700 transition-all">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v1m6 11h2m-6 0h-2v4h2v-4zM6 6h6v6H6V6zm12 0h6v6h-6V6zm-6 12h6v6h-6v-6z"></path></svg>
                     </button>
                 </div>
             </div>
@@ -172,36 +165,91 @@
 
     <!-- QR Modal -->
     <div id="qr-modal" class="fixed inset-0 z-50 flex items-center justify-center opacity-0 pointer-events-none transition-opacity duration-300 bg-black/80 backdrop-blur-sm">
-        <div class="bg-slate-900 border border-slate-700 p-8 rounded-3xl transform scale-95 transition-transform duration-300 modal-content text-center shadow-2xl shadow-cyan-500/10">
-            <h3 class="text-xl font-bold text-white mb-6">Scan to Connect</h3>
-            <div id="qrcode" class="p-4 bg-white rounded-xl mx-auto"></div>
-            <button id="close-modal" class="mt-6 px-6 py-2 rounded-full bg-slate-800 hover:bg-slate-700 text-white transition-colors text-sm font-medium">Close</button>
+        <div class="bg-slate-900 border border-slate-700 p-6 rounded-3xl transform scale-95 transition-transform duration-300 modal-content text-center shadow-2xl">
+            <h3 class="text-lg font-bold text-white mb-4">Scan to Connect</h3>
+            <div id="qrcode" class="p-2 bg-white rounded-xl mx-auto mb-4 w-[220px] h-[220px]"></div>
+            <button id="close-modal" class="px-6 py-2 rounded-full bg-slate-800 hover:bg-slate-700 text-white transition-colors text-sm">Close</button>
         </div>
     </div>
 
     <script>
-        // --- Logic: Client Side Ping & Interactions ---
         document.addEventListener('DOMContentLoaded', () => {
             const grid = document.getElementById('proxy-grid');
-            const clientCheckBtn = document.getElementById('client-check-btn');
+            const searchInput = document.getElementById('proxy-search');
+            const resultCount = document.getElementById('result-count');
+            const cards = Array.from(document.querySelectorAll('.proxy-card'));
+
+            // 1. Search Logic
+            searchInput.addEventListener('input', (e) => {
+                const term = e.target.value.toLowerCase();
+                let visible = 0;
+                
+                cards.forEach(card => {
+                    const server = card.dataset.server.toLowerCase();
+                    const port = card.dataset.port;
+                    const match = server.includes(term) || port.includes(term);
+                    
+                    if(match) {
+                        card.style.display = 'block';
+                        visible++;
+                    } else {
+                        card.style.display = 'none';
+                    }
+                });
+                resultCount.textContent = `Showing ${visible} proxies`;
+            });
+
+            // 2. Export All Online Logic
+            document.getElementById('export-btn').addEventListener('click', () => {
+                const onlineCards = document.querySelectorAll('.proxy-card.is-online');
+                let exportText = "";
+                onlineCards.forEach(card => {
+                    exportText += card.dataset.url + "\n";
+                });
+                
+                if(!exportText) return alert('No online proxies to export!');
+                
+                navigator.clipboard.writeText(exportText).then(() => {
+                    const btn = document.getElementById('export-btn');
+                    const originalHTML = btn.innerHTML;
+                    btn.innerHTML = `<span class="text-emerald-400 font-bold">Copied ${onlineCards.length} Proxies!</span>`;
+                    setTimeout(() => btn.innerHTML = originalHTML, 2000);
+                });
+            });
+
+            // 3. Time Ago Logic
+            const timeElement = document.getElementById('time-ago');
+            const timestamp = parseInt(timeElement.dataset.timestamp) * 1000;
             
-            // 1. Copy Function
+            function updateTime() {
+                const seconds = Math.floor((new Date() - timestamp) / 1000);
+                let interval = seconds / 31536000;
+                if (interval > 1) return timeElement.innerText = Math.floor(interval) + " years ago";
+                interval = seconds / 2592000;
+                if (interval > 1) return timeElement.innerText = Math.floor(interval) + " months ago";
+                interval = seconds / 86400;
+                if (interval > 1) return timeElement.innerText = Math.floor(interval) + " days ago";
+                interval = seconds / 3600;
+                if (interval > 1) return timeElement.innerText = Math.floor(interval) + " hours ago";
+                interval = seconds / 60;
+                if (interval > 1) return timeElement.innerText = Math.floor(interval) + " mins ago";
+                return timeElement.innerText = "just now";
+            }
+            updateTime();
+            setInterval(updateTime, 60000);
+
+            // 4. Copy & QR Interactions
             grid.addEventListener('click', (e) => {
                 if (e.target.closest('.copy-btn')) {
                     const btn = e.target.closest('.copy-btn');
                     const url = btn.closest('.proxy-card').dataset.url;
                     navigator.clipboard.writeText(url);
-                    const originalText = btn.innerText;
-                    btn.innerText = "Copied!";
-                    btn.classList.add('text-emerald-400', 'border-emerald-500/50');
-                    setTimeout(() => {
-                        btn.innerText = originalText;
-                        btn.classList.remove('text-emerald-400', 'border-emerald-500/50');
-                    }, 1500);
+                    btn.innerHTML = `<svg class="w-4 h-4 text-emerald-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>`;
+                    setTimeout(() => btn.innerHTML = `<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>`, 1500);
                 }
             });
 
-            // 2. QR Code
+            // Modal Logic
             const modal = document.getElementById('qr-modal');
             const qrContainer = document.getElementById('qrcode');
             
@@ -209,69 +257,17 @@
                 if (e.target.closest('.qr-btn')) {
                     const url = e.target.closest('.proxy-card').dataset.url;
                     qrContainer.innerHTML = '';
-                    new QRCode(qrContainer, { text: url, width: 200, height: 200 });
+                    new QRCode(qrContainer, { text: url, width: 220, height: 220 });
                     modal.classList.remove('opacity-0', 'pointer-events-none');
                     modal.querySelector('.modal-content').classList.remove('scale-95');
-                    modal.querySelector('.modal-content').classList.add('scale-100');
                 }
             });
 
-            const closeModal = () => {
+            document.getElementById('close-modal').onclick = () => {
                 modal.classList.add('opacity-0', 'pointer-events-none');
                 modal.querySelector('.modal-content').classList.add('scale-95');
-                modal.querySelector('.modal-content').classList.remove('scale-100');
-            }
-            document.getElementById('close-modal').onclick = closeModal;
-            modal.onclick = (e) => { if(e.target === modal) closeModal(); }
-
-            // 3. Client Side Ping Logic
-            clientCheckBtn.addEventListener('click', async () => {
-                const onlineCards = Array.from(document.querySelectorAll('.proxy-card.is-online'));
-                if(onlineCards.length === 0) return;
-
-                clientCheckBtn.disabled = true;
-                clientCheckBtn.innerHTML = `<svg class="animate-spin h-4 w-4 text-white" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg> Testing...`;
-
-                for (const card of onlineCards) {
-                    const server = card.dataset.server;
-                    const port = card.dataset.port;
-                    const badge = card.querySelector('.ping-badge');
-                    
-                    // Visual Loading state
-                    if(badge) badge.innerHTML = '...';
-
-                    const start = performance.now();
-                    try {
-                        // We use fetch with no-cors. It will fail (opaque), but the time it takes tells us the TCP handshake + TTFB
-                        const controller = new AbortController();
-                        const id = setTimeout(() => controller.abort(), 2000); // 2s timeout
-                        await fetch(`http://${server}:${port}`, { 
-                            mode: 'no-cors', 
-                            signal: controller.signal,
-                            cache: 'no-store'
-                        });
-                        clearTimeout(id);
-                        const duration = Math.round(performance.now() - start);
-                        if(badge) badge.innerHTML = `<span class="text-cyan-400 font-bold">${duration}</span>ms (Client)`;
-                        card.dataset.clientLatency = duration;
-                    } catch (e) {
-                         if(badge) badge.innerHTML = `<span class="text-orange-400">Timeout</span>`;
-                         card.dataset.clientLatency = 9999;
-                    }
-                }
-
-                // Re-sort based on client latency
-                const container = document.getElementById('proxy-grid');
-                onlineCards.sort((a, b) => {
-                    return (parseInt(a.dataset.clientLatency) || 9999) - (parseInt(b.dataset.clientLatency) || 9999);
-                });
-                
-                // Append re-sorted cards (moves them visually)
-                onlineCards.forEach(card => container.appendChild(card));
-
-                clientCheckBtn.disabled = false;
-                clientCheckBtn.innerHTML = 'Test Complete';
-            });
+            };
+            modal.onclick = (e) => { if(e.target === modal) document.getElementById('close-modal').click(); }
         });
     </script>
 </body>
