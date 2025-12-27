@@ -1,0 +1,155 @@
+[
+    {
+        "server": "halftime.parsintalk.ir",
+        "port": 443,
+        "secret": "ee1603010200010001fc030386e24c3add6d656469612e737465616d706f77657265642e636f6d",
+        "type": "TLS",
+        "tg_url": "tg:\/\/proxy?server=halftime.parsintalk.ir&port=443&secret=ee1603010200010001fc030386e24c3add6d656469612e737465616d706f77657265642e636f6d",
+        "status": "Online",
+        "latency": 113
+    },
+    {
+        "server": "sebro.sheshko.info",
+        "port": 443,
+        "secret": "ee1603010200010001fc030386e24c3add6d656469612e737465616d706f77657265642e636f6d",
+        "type": "TLS",
+        "tg_url": "tg:\/\/proxy?server=sebro.sheshko.info&port=443&secret=ee1603010200010001fc030386e24c3add6d656469612e737465616d706f77657265642e636f6d",
+        "status": "Online",
+        "latency": 114
+    },
+    {
+        "server": "algortim.sayaair.ir",
+        "port": 443,
+        "secret": "ee1603010200010001fc030386e24c3add6d656469612e737465616d706f77657265642e636f6d",
+        "type": "TLS",
+        "tg_url": "tg:\/\/proxy?server=algortim.sayaair.ir&port=443&secret=ee1603010200010001fc030386e24c3add6d656469612e737465616d706f77657265642e636f6d",
+        "status": "Online",
+        "latency": 440
+    },
+    {
+        "server": "sadra.mygrade.ir",
+        "port": 443,
+        "secret": "ee1603010200010001fc030386e24c3add6d656469612e737465616d706f77657265642e636f6d",
+        "type": "TLS",
+        "tg_url": "tg:\/\/proxy?server=sadra.mygrade.ir&port=443&secret=ee1603010200010001fc030386e24c3add6d656469612e737465616d706f77657265642e636f6d",
+        "status": "Online",
+        "latency": 552
+    },
+    {
+        "server": "wait.fiziotr.info",
+        "port": 443,
+        "secret": "ee1603010200010001fc030386e24c3add6d656469612e737465616d706f77657265642e636f6d",
+        "type": "TLS",
+        "tg_url": "tg:\/\/proxy?server=wait.fiziotr.info&port=443&secret=ee1603010200010001fc030386e24c3add6d656469612e737465616d706f77657265642e636f6d",
+        "status": "Online",
+        "latency": 827
+    },
+    {
+        "server": "syczleck.itemag.ir",
+        "port": 443,
+        "secret": "ee1603010200010001fc030386e24c3add6d656469612e737465616d706f77657265642e636f6d",
+        "type": "TLS",
+        "tg_url": "tg:\/\/proxy?server=syczleck.itemag.ir&port=443&secret=ee1603010200010001fc030386e24c3add6d656469612e737465616d706f77657265642e636f6d",
+        "status": "Online",
+        "latency": 874
+    },
+    {
+        "server": "response.cinere.info",
+        "port": 443,
+        "secret": "ee1603010200010001fc030386e24c3add6d656469612e737465616d706f77657265642e636f6d",
+        "type": "TLS",
+        "tg_url": "tg:\/\/proxy?server=response.cinere.info&port=443&secret=ee1603010200010001fc030386e24c3add6d656469612e737465616d706f77657265642e636f6d",
+        "status": "Online",
+        "latency": 1154
+    },
+    {
+        "server": "aval.fsaremi.info",
+        "port": 443,
+        "secret": "ee1603010200010001fc030386e24c3add6d656469612e737465616d706f77657265642e636f6d",
+        "type": "TLS",
+        "tg_url": "tg:\/\/proxy?server=aval.fsaremi.info&port=443&secret=ee1603010200010001fc030386e24c3add6d656469612e737465616d706f77657265642e636f6d",
+        "status": "Online",
+        "latency": 1369
+    },
+    {
+        "server": "HAMRAH-AVAL.new-visioncity.ir.",
+        "port": 9741,
+        "secret": "ee0000f00f0f775555fffffff5006e2e696d656469612e737465616d706f77657265642e636f6d",
+        "type": "TLS",
+        "tg_url": "tg:\/\/proxy?server=HAMRAH-AVAL.new-visioncity.ir.&port=9741&secret=ee0000f00f0f775555fffffff5006e2e696d656469612e737465616d706f77657265642e636f6d",
+        "status": "Online",
+        "latency": 1651
+    },
+    {
+        "server": "138.201.133.111",
+        "port": 443,
+        "secret": "dd638becf0fe989caa21b10797ad4d1c38",
+        "type": "Secured",
+        "tg_url": "tg:\/\/proxy?server=138.201.133.111&port=443&secret=dd638becf0fe989caa21b10797ad4d1c38",
+        "status": "Online",
+        "latency": 1651
+    },
+    {
+        "server": "ultra.transiiantanialnmiomana.info",
+        "port": 443,
+        "secret": "eee9a4f23b1d768c04a8d7f39120ca5b6e6D656469612E737465616D706F77657265642E636F6D",
+        "type": "TLS",
+        "tg_url": "tg:\/\/proxy?server=ultra.transiiantanialnmiomana.info&port=443&secret=eee9a4f23b1d768c04a8d7f39120ca5b6e6D656469612E737465616D706F77657265642E636F6D",
+        "status": "Online",
+        "latency": 1959
+    },
+    {
+        "server": "net-meli.bozorgavar-game.ir.",
+        "port": 9741,
+        "secret": "ee0000f00f0f775555fffffff5006e2e696d656469612e737465616d706f77657265642e636f6d",
+        "type": "TLS",
+        "tg_url": "tg:\/\/proxy?server=net-meli.bozorgavar-game.ir.&port=9741&secret=ee0000f00f0f775555fffffff5006e2e696d656469612e737465616d706f77657265642e636f6d",
+        "status": "Online",
+        "latency": 2764
+    },
+    {
+        "server": "51.159.165.172",
+        "port": 7549,
+        "secret": "eeff9890eed0a3c6fbfafeb2608a4aedb37777772e736974652e636f6d",
+        "type": "TLS",
+        "tg_url": "tg:\/\/proxy?server=51.159.165.172&port=7549&secret=eeff9890eed0a3c6fbfafeb2608a4aedb37777772e736974652e636f6d",
+        "status": "Online",
+        "latency": 2888
+    },
+    {
+        "server": "51.159.166.112",
+        "port": 7603,
+        "secret": "ee0ad565389bb264b33c81f11bd42c104b7777772e736974652e636f6d",
+        "type": "TLS",
+        "tg_url": "tg:\/\/proxy?server=51.159.166.112&port=7603&secret=ee0ad565389bb264b33c81f11bd42c104b7777772e736974652e636f6d",
+        "status": "Online",
+        "latency": 2888
+    },
+    {
+        "server": "51.159.149.220",
+        "port": 8000,
+        "secret": "eee72cf91a4fee7902896720b31c3c14e27777772e736974652e636f6d",
+        "type": "TLS",
+        "tg_url": "tg:\/\/proxy?server=51.159.149.220&port=8000&secret=eee72cf91a4fee7902896720b31c3c14e27777772e736974652e636f6d",
+        "status": "Online",
+        "latency": 2888
+    },
+    {
+        "server": "51.159.157.218",
+        "port": 7743,
+        "secret": "eedbe97246f57a3e90ccc1c3f25b8e15ef7777772e736974652e636f6d",
+        "type": "TLS",
+        "tg_url": "tg:\/\/proxy?server=51.159.157.218&port=7743&secret=eedbe97246f57a3e90ccc1c3f25b8e15ef7777772e736974652e636f6d",
+        "status": "Online",
+        "latency": 2888
+    },
+    {
+        "server": "full.siteliveim.co.uk.",
+        "port": 443,
+        "secret": "dd104462821249bd7ac519130220c25d09",
+        "type": "Secured",
+        "tg_url": "tg:\/\/proxy?server=full.siteliveim.co.uk.&port=443&secret=dd104462821249bd7ac519130220c25d09",
+        "status": "Offline",
+        "latency": null
+    }
+]
