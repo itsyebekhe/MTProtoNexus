@@ -85,7 +85,7 @@ class ProxyScanner {
     private function extractProxies(array $htmlContents): array {
         $found = [];
         // Regex looks for the whole tg:// link
-        $linkRegex = '/(?:tg:\/\/|https:\/\/t\.me\/)proxy\?([^"\'\s<>]+)/i';
+        $linkRegex = '/proxy\?(?=[^"]*server=)(?=[^"]*port=)([^"\'\s<>]+)/i';
 
         foreach ($htmlContents as $html) {
             // Decode HTML entities first (&amp; -> &)
@@ -106,9 +106,11 @@ class ProxyScanner {
                         $key = "$server:$port";
                         
                         // Detect Type
-                        $type = 'Standard';
-                        if (str_starts_with($secret, 'dd')) $type = 'Secured';
-                        if (str_starts_with($secret, 'ee')) $type = 'TLS';
+                        $type = match (true) {
+    str_starts_with($secret, 'dd') => 'MTProto Secure',
+    str_starts_with($secret, 'ee') => 'MTProto TLS',
+    default => 'MTProto'
+};
 
                         $found[$key] = [
                             'server' => $server,
@@ -139,63 +141,81 @@ class ProxyScanner {
      * Validates and cleans the secret
      */
     private function cleanSecret(string $secret): ?string {
-        // Remove whitespace
-        $secret = trim($secret);
-        
-        // Allow only Hex characters (0-9, a-f)
-        // MTProto secrets are Hex. 
-        if (!preg_match('/^[0-9a-fA-F]+$/', $secret)) {
-            return null; 
-        }
+    $secret = strtolower(trim($secret));
 
-        return $secret;
+    if (!ctype_xdigit($secret)) {
+        return null;
     }
+
+    $len = strlen($secret);
+
+    // Basic MTProto rules
+    if (str_starts_with($secret, 'dd') && $len !== 32) return null; // 16 bytes
+    if (str_starts_with($secret, 'ee') && $len < 34) return null;  // TLS
+    if (!str_starts_with($secret, 'dd') && !str_starts_with($secret, 'ee') && $len !== 32) {
+        return null;
+    }
+
+    return $secret;
+}
 
     private function checkConnectivity(array $proxies): array {
         $results = [];
-        $chunks = array_chunk($proxies, CONFIG['batch_size']);
 
-        foreach ($chunks as $chunk) {
-            $sockets = [];
-            $map = [];
-            foreach ($chunk as $idx => $proxy) {
-                $address = "tcp://{$proxy['server']}:{$proxy['port']}";
-                $s = @stream_socket_client($address, $errno, $errstr, 0, STREAM_CLIENT_ASYNC_CONNECT | STREAM_CLIENT_CONNECT);
-                if ($s) {
-                    $sockets[$idx] = $s;
-                    $map[$idx] = ['proxy' => $proxy, 'start' => microtime(true)];
+        foreach (array_chunk($proxies, CONFIG['socket_batch']) as $chunk) {
+            $sockets = $map = [];
+
+            foreach ($chunk as $i => $p) {
+                $sock = @stream_socket_client(
+                    "tcp://{$p['server']}:{$p['port']}",
+                    $e, $es, 0,
+                    STREAM_CLIENT_ASYNC_CONNECT
+                );
+
+                if ($sock) {
+                    stream_set_blocking($sock, false);
+                    $sockets[$i] = $sock;
+                    $map[$i] = ['p' => $p, 't' => microtime(true)];
                 } else {
-                    $proxy['status'] = 'Offline';
-                    $proxy['latency'] = null;
-                    $results[] = $proxy;
+                    $p['status'] = 'Offline';
+                    $p['status_rank'] = 0;
+                    $results[] = $p;
                 }
             }
 
-            $timeout = CONFIG['socket_timeout'];
-            $startWait = microtime(true);
-            
-            while (!empty($sockets) && (microtime(true) - $startWait) < $timeout) {
-                $read = $write = $sockets;
-                $except = null;
-                if (stream_select($read, $write, $except, 0, 200000) > 0) {
-                    foreach ($write as $id => $sock) {
-                        $info = $map[$id];
-                        $latency = round((microtime(true) - $info['start']) * 1000);
-                        $p = $info['proxy'];
-                        $p['status'] = 'Online';
-                        $p['latency'] = $latency;
+            $start = microtime(true);
+            while ($sockets && microtime(true) - $start < CONFIG['socket_timeout']) {
+                $r = $w = $sockets;
+                if (stream_select($r, $w, $e, 0, 200000)) {
+                    foreach ($w as $id => $s) {
+                        fwrite($s, random_bytes(32));
+                        $data = fread($s, 1);
+
+                        $p = $map[$id]['p'];
+                        $lat = round((microtime(true) - $map[$id]['t']) * 1000);
+
+                        if ($data !== false && $data !== '') {
+                            $p['status'] = 'Online';
+                            $p['status_rank'] = 2;
+                            $p['latency'] = $lat;
+                        } else {
+                            $p['status'] = 'Unstable';
+                            $p['status_rank'] = 1;
+                            $p['latency'] = null;
+                        }
                         $results[] = $p;
-                        fclose($sock);
+                        fclose($s);
                         unset($sockets[$id]);
                     }
                 }
             }
-            foreach ($sockets as $id => $sock) {
-                $p = $map[$id]['proxy'];
+
+            foreach ($sockets as $id => $s) {
+                $p = $map[$id]['p'];
                 $p['status'] = 'Offline';
-                $p['latency'] = null;
+                $p['status_rank'] = 0;
                 $results[] = $p;
-                fclose($sock);
+                fclose($s);
             }
         }
         return $results;
