@@ -12,6 +12,7 @@ const CONFIG = [
     'cache_duration'  => 3600,
     'socket_timeout'  => 2,
     'batch_size'      => 50,
+    'socket_batch'    => 20
 ];
 
 class ProxyScanner {
