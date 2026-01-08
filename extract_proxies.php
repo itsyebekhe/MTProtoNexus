@@ -160,67 +160,101 @@ class ProxyScanner {
     return $secret;
 }
 
-    private function checkConnectivity(array $proxies): array {
-        $results = [];
+    private function checkConnectivity(array $proxies): array
+{
+    $results = [];
 
-        foreach (array_chunk($proxies, CONFIG['socket_batch']) as $chunk) {
-            $sockets = $map = [];
+    $batchSize = CONFIG['batch_size'] ?? 20;
+    $timeout   = CONFIG['socket_timeout'] ?? 2;
 
-            foreach ($chunk as $i => $p) {
-                $sock = @stream_socket_client(
-                    "tcp://{$p['server']}:{$p['port']}",
-                    $e, $es, 0,
-                    STREAM_CLIENT_ASYNC_CONNECT
-                );
+    $chunks = array_chunk($proxies, (int)$batchSize);
 
-                if ($sock) {
-                    stream_set_blocking($sock, false);
-                    $sockets[$i] = $sock;
-                    $map[$i] = ['p' => $p, 't' => microtime(true)];
-                } else {
-                    $p['status'] = 'Offline';
-                    $p['status_rank'] = 0;
-                    $results[] = $p;
-                }
-            }
+    foreach ($chunks as $chunk) {
+        $sockets = [];
+        $map     = [];
 
-            $start = microtime(true);
-            while ($sockets && microtime(true) - $start < CONFIG['socket_timeout']) {
-                $r = $w = $sockets;
-                if (stream_select($r, $w, $e, 0, 200000)) {
-                    foreach ($w as $id => $s) {
-                        fwrite($s, random_bytes(32));
-                        $data = fread($s, 1);
+        foreach ($chunk as $idx => $proxy) {
+            $address = "tcp://{$proxy['server']}:{$proxy['port']}";
 
-                        $p = $map[$id]['p'];
-                        $lat = round((microtime(true) - $map[$id]['t']) * 1000);
+            $socket = @stream_socket_client(
+                $address,
+                $errno,
+                $errstr,
+                0,
+                STREAM_CLIENT_ASYNC_CONNECT | STREAM_CLIENT_CONNECT
+            );
 
-                        if ($data !== false && $data !== '') {
-                            $p['status'] = 'Online';
-                            $p['status_rank'] = 2;
-                            $p['latency'] = $lat;
-                        } else {
-                            $p['status'] = 'Unstable';
-                            $p['status_rank'] = 1;
-                            $p['latency'] = null;
-                        }
-                        $results[] = $p;
-                        fclose($s);
-                        unset($sockets[$id]);
-                    }
-                }
-            }
-
-            foreach ($sockets as $id => $s) {
-                $p = $map[$id]['p'];
-                $p['status'] = 'Offline';
-                $p['status_rank'] = 0;
-                $results[] = $p;
-                fclose($s);
+            if ($socket !== false) {
+                stream_set_blocking($socket, false);
+                $sockets[$idx] = $socket;
+                $map[$idx] = [
+                    'proxy' => $proxy,
+                    'start' => microtime(true),
+                ];
+            } else {
+                $proxy['status']  = 'Offline';
+                $proxy['latency'] = null;
+                $results[] = $proxy;
             }
         }
-        return $results;
+
+        $startWait = microtime(true);
+
+        while (!empty($sockets) && (microtime(true) - $startWait) < $timeout) {
+
+            $write  = $sockets; // we only care about write-ready sockets
+            $read   = null;
+            $except = null;
+
+            $changed = @stream_select($read, $write, $except, 0, 200000);
+
+            if ($changed === false) {
+                break;
+            }
+
+            if ($changed > 0) {
+                foreach ($write as $id => $sock) {
+                    $info = $map[$id];
+
+                    $latency = (int) round(
+                        (microtime(true) - $info['start']) * 1000
+                    );
+
+                    $p = $info['proxy'];
+
+                    // Optional: minimal data write to detect dead accepts
+                    @fwrite($sock, random_bytes(32));
+                    stream_set_timeout($sock, 0, 200000);
+                    $data = @fread($sock, 1);
+
+                    if ($data !== false) {
+                        $p['status'] = 'Online';
+                    } else {
+                        $p['status'] = 'Unstable';
+                    }
+
+                    $p['latency'] = $latency;
+
+                    $results[] = $p;
+
+                    fclose($sock);
+                    unset($sockets[$id], $map[$id]);
+                }
+            }
+        }
+
+        // Anything still pending = Offline
+        foreach ($sockets as $id => $sock) {
+            $p = $map[$id]['proxy'];
+            $p['status']  = 'Offline';
+            $p['latency'] = null;
+            $results[] = $p;
+            fclose($sock);
+        }
     }
+
+    return $results;
+}
 }
 
 // --- Run ---
