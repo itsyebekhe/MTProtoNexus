@@ -1,0 +1,56 @@
+[
+    {
+        "server": "vasl-mishim-021.ir.dash-cf9.info.",
+        "port": 443,
+        "secret": "e9a4f23b1d768c04a8d7f39120ca5b6e",
+        "type": "MTProto",
+        "tg_url": "tg:\/\/proxy?server=vasl-mishim-021.ir.dash-cf9.info.&port=443&secret=e9a4f23b1d768c04a8d7f39120ca5b6e",
+        "status": "Online",
+        "latency": 10015
+    },
+    {
+        "server": "respina.kalakbazi-co.co.uk",
+        "port": 443,
+        "secret": "ee1603010200010001fc030386e24c3add626973636f7474692e79656b74616e65742e636f6d",
+        "type": "MTProto TLS",
+        "tg_url": "tg:\/\/proxy?server=respina.kalakbazi-co.co.uk&port=443&secret=ee1603010200010001fc030386e24c3add626973636f7474692e79656b74616e65742e636f6d",
+        "status": "Online",
+        "latency": 10249
+    },
+    {
+        "server": "91.239.192.45",
+        "port": 4455,
+        "secret": "ee1603010200010001fc030386e24c3add163646e2e79656b74616e65742e636f6d5c6e21402324255e262a28295f2b5c6e48414a5c6e486f737365696e",
+        "type": "MTProto TLS",
+        "tg_url": "tg:\/\/proxy?server=91.239.192.45&port=4455&secret=ee1603010200010001fc030386e24c3add163646e2e79656b74616e65742e636f6d5c6e21402324255e262a28295f2b5c6e48414a5c6e486f737365696e",
+        "status": "Online",
+        "latency": 10420
+    },
+    {
+        "server": "log.romanssystem.store",
+        "port": 4515,
+        "secret": "eee9a4f23b1d768c04a8d7f39120ca5b6e626973636f7474692e79656b74616e65742e636f6d",
+        "type": "MTProto TLS",
+        "tg_url": "tg:\/\/proxy?server=log.romanssystem.store&port=4515&secret=eee9a4f23b1d768c04a8d7f39120ca5b6e626973636f7474692e79656b74616e65742e636f6d",
+        "status": "Offline",
+        "latency": null
+    },
+    {
+        "server": "145.239.30.5",
+        "port": 443,
+        "secret": "00112233445566778899aabbccddeeff",
+        "type": "MTProto",
+        "tg_url": "tg:\/\/proxy?server=145.239.30.5&port=443&secret=00112233445566778899aabbccddeeff",
+        "status": "Offline",
+        "latency": null
+    },
+    {
+        "server": "195.24.236.5",
+        "port": 2288,
+        "secret": "eee9a4f23b1d768c04a8d7f39120ca5b6e626973636f7474692e79656b74616e65742e636f6d",
+        "type": "MTProto TLS",
+        "tg_url": "tg:\/\/proxy?server=195.24.236.5&port=2288&secret=eee9a4f23b1d768c04a8d7f39120ca5b6e626973636f7474692e79656b74616e65742e636f6d",
+        "status": "Offline",
+        "latency": null
+    }
+]
