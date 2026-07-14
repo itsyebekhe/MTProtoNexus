@@ -54,7 +54,7 @@ class ProxyScanner {
         $results = [];
 
         foreach ($usernames as $user) {
-            $url = 'https://t.me/s/' . trim($user);
+            $url = 'https://telegram.me/s/' . trim($user);
             $ch = curl_init($url);
             curl_setopt_array($ch, [
                 CURLOPT_RETURNTRANSFER => true,
