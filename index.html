@@ -1,0 +1,1580 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MTProto Nexus</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        dark: { 900: '#0f172a', 800: '#1e293b' },
+                        primary: { 500: '#06b6d4', 600: '#0891b2' } // Cyan
+                    },
+                    animation: {
+                        'blob': 'blob 10s infinite',
+                        'fade-in': 'fadeIn 0.5s ease-out forwards',
+                    },
+                    keyframes: {
+                        blob: {
+                            '0%, 100%': { transform: 'translate(0px, 0px) scale(1)' },
+                            '33%': { transform: 'translate(30px, -50px) scale(1.1)' },
+                            '66%': { transform: 'translate(-20px, 20px) scale(0.9)' },
+                        },
+                        fadeIn: {
+                            '0%': { opacity: '0', transform: 'translateY(10px)' },
+                            '100%': { opacity: '1', transform: 'translateY(0)' },
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        .glass-panel { background: rgba(30, 41, 59, 0.6); backdrop-filter: blur(12px); border: 1px solid rgba(255, 255, 255, 0.05); }
+        .glass-card { background: rgba(255, 255, 255, 0.03); border: 1px solid rgba(255, 255, 255, 0.05); transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
+        .glass-card:hover { background: rgba(255, 255, 255, 0.06); border-color: rgba(6, 182, 212, 0.3); transform: translateY(-3px); box-shadow: 0 10px 30px -10px rgba(6, 182, 212, 0.2); }
+    </style>
+</head>
+<body class="bg-dark-900 text-slate-200 min-h-screen font-sans selection:bg-primary-500 selection:text-white overflow-x-hidden">
+
+    <!-- Ambient Background -->
+    <div class="fixed inset-0 z-0 overflow-hidden pointer-events-none">
+        <div class="absolute top-[-10%] left-[-10%] w-[40rem] h-[40rem] bg-purple-500/10 rounded-full blur-[120px] animate-blob"></div>
+        <div class="absolute top-[20%] right-[-10%] w-[30rem] h-[30rem] bg-primary-500/10 rounded-full blur-[100px] animate-blob animation-delay-2000"></div>
+    </div>
+
+    <div class="relative z-10 container mx-auto px-4 py-8 md:py-12 max-w-7xl">
+        
+        <!-- Header -->
+        <header class="flex flex-col md:flex-row justify-between items-end mb-10 gap-6 animate-fade-in">
+            <div>
+                <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary-500/10 border border-primary-500/20 text-primary-500 text-xs font-bold tracking-wider uppercase mb-3">
+                    <span class="relative flex h-2 w-2">
+                      <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary-500 opacity-75"></span>
+                      <span class="relative inline-flex rounded-full h-2 w-2 bg-primary-500"></span>
+                    </span>
+                    Live Network Status
+                </div>
+                <h1 class="text-4xl md:text-5xl font-black text-transparent bg-clip-text bg-gradient-to-r from-white via-slate-200 to-slate-400">
+                    MTProto<span class="text-primary-500">.</span>Nexus
+                </h1>
+            </div>
+
+            <div class="flex items-center gap-4 glass-panel p-3 rounded-2xl">
+                <div class="px-4 border-r border-slate-700/50 text-right">
+                    <div class="text-xs text-slate-500 font-bold uppercase">Online</div>
+                    <div class="text-2xl font-bold text-emerald-400">23</div>
+                </div>
+                <div class="px-4 text-right">
+                    <div class="text-xs text-slate-500 font-bold uppercase">Total</div>
+                    <div class="text-2xl font-bold text-white">34</div>
+                </div>
+                <a href="?scan=1" class="group flex items-center justify-center w-12 h-12 rounded-xl bg-primary-600 hover:bg-primary-500 text-white transition-all shadow-lg shadow-primary-500/20">
+                    <svg class="w-6 h-6 group-hover:rotate-180 transition-transform duration-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
+                </a>
+            </div>
+        </header>
+
+        <!-- Toolbar: Search & Export -->
+        <div class="flex flex-col md:flex-row gap-4 mb-8 animate-fade-in" style="animation-delay: 0.1s">
+            <!-- Search -->
+            <div class="relative flex-grow">
+                <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                    <svg class="h-5 w-5 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+                </div>
+                <input type="text" id="proxy-search" placeholder="Search by IP or Port..." 
+                       class="w-full pl-10 pr-4 py-3 bg-slate-800/50 border border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent text-slate-200 placeholder-slate-500 transition-all">
+            </div>
+
+            <!-- Export -->
+            <button id="export-btn" class="flex items-center justify-center gap-2 px-6 py-3 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-xl text-slate-300 font-medium transition-all active:scale-95">
+                <svg class="w-5 h-5 text-primary-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3"></path></svg>
+                Export Online List
+            </button>
+        </div>
+
+        <!-- Status Bar -->
+        <div class="flex justify-between items-center text-xs text-slate-500 mb-6 px-1">
+            <div id="result-count">Showing 34 proxies</div>
+            <div class="font-mono">Updated <span id="time-ago" data-timestamp="1788636605">just now</span></div>
+        </div>
+
+        <!-- Grid -->
+        <div id="proxy-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 pb-20">
+                        <div class="proxy-card glass-card rounded-2xl p-5 relative overflow-hidden group animate-fade-in is-online" 
+                 style="animation-delay: 0s"
+                 data-server="mt.joumalanet.co.uk" 
+                 data-port="25565" 
+                 data-url="tg://proxy?server=mt.joumalanet.co.uk&amp;port=25565&amp;secret=ee1603010200010001fc030386e24c3add617669746f2e7275">
+                
+                <!-- Status & Type Header -->
+                <div class="flex justify-between items-start mb-4">
+                    <span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider border text-slate-400 bg-slate-400/10 border-slate-400/20">
+                        MTProto TLS                    </span>
+                    <div class="flex items-center gap-1.5">
+                        <span class="text-xs font-bold text-emerald-500">
+                            2ms                        </span>
+                        <span class="relative flex h-2 w-2">
+                            <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>                            <span class="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                        </span>
+                    </div>
+                </div>
+
+                <!-- Info -->
+                <div class="mb-5">
+                    <div class="font-mono text-lg text-slate-200 truncate select-all" title="mt.joumalanet.co.uk">mt.joumalanet.co.uk</div>
+                    <div class="text-sm text-slate-500 font-mono mt-0.5 flex items-center gap-2">
+                        <span>Port: 25565</span>
+                    </div>
+                </div>
+
+                <!-- Actions -->
+                <div class="grid grid-cols-4 gap-2 mt-auto">
+                    <a href="tg://proxy?server=mt.joumalanet.co.uk&amp;port=25565&amp;secret=ee1603010200010001fc030386e24c3add617669746f2e7275" class="col-span-2 flex items-center justify-center py-2 rounded-lg bg-emerald-500/10 hover:bg-emerald-500 text-emerald-500 hover:text-white border border-emerald-500/20 transition-all font-medium text-sm gap-1">
+                        Connect
+                    </a>
+                    <button class="col-span-1 copy-btn flex items-center justify-center py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-400 border border-slate-700 transition-all">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>
+                    </button>
+                    <button class="col-span-1 qr-btn flex items-center justify-center py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-400 border border-slate-700 transition-all">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v1m6 11h2m-6 0h-2v4h2v-4zM6 6h6v6H6V6zm12 0h6v6h-6V6zm-6 12h6v6h-6v-6z"></path></svg>
+                    </button>
+                </div>
+            </div>
+                        <div class="proxy-card glass-card rounded-2xl p-5 relative overflow-hidden group animate-fade-in is-online" 
+                 style="animation-delay: 0.03s"
+                 data-server="194.117.64.11" 
+                 data-port="443" 
+                 data-url="tg://proxy?server=194.117.64.11&amp;port=443&amp;secret=ee1603010200010001fc030386e24c3add626973636f7474692e79656b74616e65742e636f6d">
+                
+                <!-- Status & Type Header -->
+                <div class="flex justify-between items-start mb-4">
+                    <span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider border text-slate-400 bg-slate-400/10 border-slate-400/20">
+                        MTProto TLS                    </span>
+                    <div class="flex items-center gap-1.5">
+                        <span class="text-xs font-bold text-emerald-500">
+                            82ms                        </span>
+                        <span class="relative flex h-2 w-2">
+                            <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>                            <span class="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                        </span>
+                    </div>
+                </div>
+
+                <!-- Info -->
+                <div class="mb-5">
+                    <div class="font-mono text-lg text-slate-200 truncate select-all" title="194.117.64.11">194.117.64.11</div>
+                    <div class="text-sm text-slate-500 font-mono mt-0.5 flex items-center gap-2">
+                        <span>Port: 443</span>
+                    </div>
+                </div>
+
+                <!-- Actions -->
+                <div class="grid grid-cols-4 gap-2 mt-auto">
+                    <a href="tg://proxy?server=194.117.64.11&amp;port=443&amp;secret=ee1603010200010001fc030386e24c3add626973636f7474692e79656b74616e65742e636f6d" class="col-span-2 flex items-center justify-center py-2 rounded-lg bg-emerald-500/10 hover:bg-emerald-500 text-emerald-500 hover:text-white border border-emerald-500/20 transition-all font-medium text-sm gap-1">
+                        Connect
+                    </a>
+                    <button class="col-span-1 copy-btn flex items-center justify-center py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-400 border border-slate-700 transition-all">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>
+                    </button>
+                    <button class="col-span-1 qr-btn flex items-center justify-center py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-400 border border-slate-700 transition-all">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v1m6 11h2m-6 0h-2v4h2v-4zM6 6h6v6H6V6zm12 0h6v6h-6V6zm-6 12h6v6h-6v-6z"></path></svg>
+                    </button>
+                </div>
+            </div>
+                        <div class="proxy-card glass-card rounded-2xl p-5 relative overflow-hidden group animate-fade-in is-online" 
+                 style="animation-delay: 0.06s"
+                 data-server="194.117.64.5" 
+                 data-port="443" 
+                 data-url="tg://proxy?server=194.117.64.5&amp;port=443&amp;secret=ee1603010200010001fc030386e24c3add626973636f7474692e79656b74616e65742e636f6d">
+                
+                <!-- Status & Type Header -->
+                <div class="flex justify-between items-start mb-4">
+                    <span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider border text-slate-400 bg-slate-400/10 border-slate-400/20">
+                        MTProto TLS                    </span>
+                    <div class="flex items-center gap-1.5">
+                        <span class="text-xs font-bold text-emerald-500">
+                            83ms                        </span>
+                        <span class="relative flex h-2 w-2">
+                            <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>                            <span class="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                        </span>
+                    </div>
+                </div>
+
+                <!-- Info -->
+                <div class="mb-5">
+                    <div class="font-mono text-lg text-slate-200 truncate select-all" title="194.117.64.5">194.117.64.5</div>
+                    <div class="text-sm text-slate-500 font-mono mt-0.5 flex items-center gap-2">
+                        <span>Port: 443</span>
+                    </div>
+                </div>
+
+                <!-- Actions -->
+                <div class="grid grid-cols-4 gap-2 mt-auto">
+                    <a href="tg://proxy?server=194.117.64.5&amp;port=443&amp;secret=ee1603010200010001fc030386e24c3add626973636f7474692e79656b74616e65742e636f6d" class="col-span-2 flex items-center justify-center py-2 rounded-lg bg-emerald-500/10 hover:bg-emerald-500 text-emerald-500 hover:text-white border border-emerald-500/20 transition-all font-medium text-sm gap-1">
+                        Connect
+                    </a>
+                    <button class="col-span-1 copy-btn flex items-center justify-center py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-400 border border-slate-700 transition-all">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>
+                    </button>
+                    <button class="col-span-1 qr-btn flex items-center justify-center py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-400 border border-slate-700 transition-all">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v1m6 11h2m-6 0h-2v4h2v-4zM6 6h6v6H6V6zm12 0h6v6h-6V6zm-6 12h6v6h-6v-6z"></path></svg>
+                    </button>
+                </div>
+            </div>
+                        <div class="proxy-card glass-card rounded-2xl p-5 relative overflow-hidden group animate-fade-in is-online" 
+                 style="animation-delay: 0.09s"
+                 data-server="194.117.64.8" 
+                 data-port="443" 
+                 data-url="tg://proxy?server=194.117.64.8&amp;port=443&amp;secret=ee1603010200010001fc030386e24c3add626973636f7474692e79656b74616e65742e636f6d">
+                
+                <!-- Status & Type Header -->
+                <div class="flex justify-between items-start mb-4">
+                    <span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider border text-slate-400 bg-slate-400/10 border-slate-400/20">
+                        MTProto TLS                    </span>
+                    <div class="flex items-center gap-1.5">
+                        <span class="text-xs font-bold text-emerald-500">
+                            88ms                        </span>
+                        <span class="relative flex h-2 w-2">
+                            <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>                            <span class="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                        </span>
+                    </div>
+                </div>
+
+                <!-- Info -->
+                <div class="mb-5">
+                    <div class="font-mono text-lg text-slate-200 truncate select-all" title="194.117.64.8">194.117.64.8</div>
+                    <div class="text-sm text-slate-500 font-mono mt-0.5 flex items-center gap-2">
+                        <span>Port: 443</span>
+                    </div>
+                </div>
+
+                <!-- Actions -->
+                <div class="grid grid-cols-4 gap-2 mt-auto">
+                    <a href="tg://proxy?server=194.117.64.8&amp;port=443&amp;secret=ee1603010200010001fc030386e24c3add626973636f7474692e79656b74616e65742e636f6d" class="col-span-2 flex items-center justify-center py-2 rounded-lg bg-emerald-500/10 hover:bg-emerald-500 text-emerald-500 hover:text-white border border-emerald-500/20 transition-all font-medium text-sm gap-1">
+                        Connect
+                    </a>
+                    <button class="col-span-1 copy-btn flex items-center justify-center py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-400 border border-slate-700 transition-all">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>
+                    </button>
+                    <button class="col-span-1 qr-btn flex items-center justify-center py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-400 border border-slate-700 transition-all">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v1m6 11h2m-6 0h-2v4h2v-4zM6 6h6v6H6V6zm12 0h6v6h-6V6zm-6 12h6v6h-6v-6z"></path></svg>
+                    </button>
+                </div>
+            </div>
+                        <div class="proxy-card glass-card rounded-2xl p-5 relative overflow-hidden group animate-fade-in is-online" 
+                 style="animation-delay: 0.12s"
+                 data-server="194.117.64.22" 
+                 data-port="443" 
+                 data-url="tg://proxy?server=194.117.64.22&amp;port=443&amp;secret=ee1603010200010001fc030386e24c3add626973636f7474692e79656b74616e65742e636f6d">
+                
+                <!-- Status & Type Header -->
+                <div class="flex justify-between items-start mb-4">
+                    <span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider border text-slate-400 bg-slate-400/10 border-slate-400/20">
+                        MTProto TLS                    </span>
+                    <div class="flex items-center gap-1.5">
+                        <span class="text-xs font-bold text-emerald-500">
+                            88ms                        </span>
+                        <span class="relative flex h-2 w-2">
+                            <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>                            <span class="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                        </span>
+                    </div>
+                </div>
+
+                <!-- Info -->
+                <div class="mb-5">
+                    <div class="font-mono text-lg text-slate-200 truncate select-all" title="194.117.64.22">194.117.64.22</div>
+                    <div class="text-sm text-slate-500 font-mono mt-0.5 flex items-center gap-2">
+                        <span>Port: 443</span>
+                    </div>
+                </div>
+
+                <!-- Actions -->
+                <div class="grid grid-cols-4 gap-2 mt-auto">
+                    <a href="tg://proxy?server=194.117.64.22&amp;port=443&amp;secret=ee1603010200010001fc030386e24c3add626973636f7474692e79656b74616e65742e636f6d" class="col-span-2 flex items-center justify-center py-2 rounded-lg bg-emerald-500/10 hover:bg-emerald-500 text-emerald-500 hover:text-white border border-emerald-500/20 transition-all font-medium text-sm gap-1">
+                        Connect
+                    </a>
+                    <button class="col-span-1 copy-btn flex items-center justify-center py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-400 border border-slate-700 transition-all">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>
+                    </button>
+                    <button class="col-span-1 qr-btn flex items-center justify-center py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-400 border border-slate-700 transition-all">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v1m6 11h2m-6 0h-2v4h2v-4zM6 6h6v6H6V6zm12 0h6v6h-6V6zm-6 12h6v6h-6v-6z"></path></svg>
+                    </button>
+                </div>
+            </div>
+                        <div class="proxy-card glass-card rounded-2xl p-5 relative overflow-hidden group animate-fade-in is-online" 
+                 style="animation-delay: 0.15s"
+                 data-server="194.117.64.6" 
+                 data-port="443" 
+                 data-url="tg://proxy?server=194.117.64.6&amp;port=443&amp;secret=ee1603010200010001fc030386e24c3add626973636f7474692e79656b74616e65742e636f6d">
+                
+                <!-- Status & Type Header -->
+                <div class="flex justify-between items-start mb-4">
+                    <span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider border text-slate-400 bg-slate-400/10 border-slate-400/20">
+                        MTProto TLS                    </span>
+                    <div class="flex items-center gap-1.5">
+                        <span class="text-xs font-bold text-emerald-500">
+                            95ms                        </span>
+                        <span class="relative flex h-2 w-2">
+                            <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>                            <span class="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                        </span>
+                    </div>
+                </div>
+
+                <!-- Info -->
+                <div class="mb-5">
+                    <div class="font-mono text-lg text-slate-200 truncate select-all" title="194.117.64.6">194.117.64.6</div>
+                    <div class="text-sm text-slate-500 font-mono mt-0.5 flex items-center gap-2">
+                        <span>Port: 443</span>
+                    </div>
+                </div>
+
+                <!-- Actions -->
+                <div class="grid grid-cols-4 gap-2 mt-auto">
+                    <a href="tg://proxy?server=194.117.64.6&amp;port=443&amp;secret=ee1603010200010001fc030386e24c3add626973636f7474692e79656b74616e65742e636f6d" class="col-span-2 flex items-center justify-center py-2 rounded-lg bg-emerald-500/10 hover:bg-emerald-500 text-emerald-500 hover:text-white border border-emerald-500/20 transition-all font-medium text-sm gap-1">
+                        Connect
+                    </a>
+                    <button class="col-span-1 copy-btn flex items-center justify-center py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-400 border border-slate-700 transition-all">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>
+                    </button>
+                    <button class="col-span-1 qr-btn flex items-center justify-center py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-400 border border-slate-700 transition-all">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v1m6 11h2m-6 0h-2v4h2v-4zM6 6h6v6H6V6zm12 0h6v6h-6V6zm-6 12h6v6h-6v-6z"></path></svg>
+                    </button>
+                </div>
+            </div>
+                        <div class="proxy-card glass-card rounded-2xl p-5 relative overflow-hidden group animate-fade-in is-online" 
+                 style="animation-delay: 0.18s"
+                 data-server="194.117.64.10" 
+                 data-port="443" 
+                 data-url="tg://proxy?server=194.117.64.10&amp;port=443&amp;secret=ee1603010200010001fc030386e24c3add626973636f7474692e79656b74616e65742e636f6d">
+                
+                <!-- Status & Type Header -->
+                <div class="flex justify-between items-start mb-4">
+                    <span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider border text-slate-400 bg-slate-400/10 border-slate-400/20">
+                        MTProto TLS                    </span>
+                    <div class="flex items-center gap-1.5">
+                        <span class="text-xs font-bold text-emerald-500">
+                            96ms                        </span>
+                        <span class="relative flex h-2 w-2">
+                            <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>                            <span class="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                        </span>
+                    </div>
+                </div>
+
+                <!-- Info -->
+                <div class="mb-5">
+                    <div class="font-mono text-lg text-slate-200 truncate select-all" title="194.117.64.10">194.117.64.10</div>
+                    <div class="text-sm text-slate-500 font-mono mt-0.5 flex items-center gap-2">
+                        <span>Port: 443</span>
+                    </div>
+                </div>
+
+                <!-- Actions -->
+                <div class="grid grid-cols-4 gap-2 mt-auto">
+                    <a href="tg://proxy?server=194.117.64.10&amp;port=443&amp;secret=ee1603010200010001fc030386e24c3add626973636f7474692e79656b74616e65742e636f6d" class="col-span-2 flex items-center justify-center py-2 rounded-lg bg-emerald-500/10 hover:bg-emerald-500 text-emerald-500 hover:text-white border border-emerald-500/20 transition-all font-medium text-sm gap-1">
+                        Connect
+                    </a>
+                    <button class="col-span-1 copy-btn flex items-center justify-center py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-400 border border-slate-700 transition-all">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>
+                    </button>
+                    <button class="col-span-1 qr-btn flex items-center justify-center py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-400 border border-slate-700 transition-all">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v1m6 11h2m-6 0h-2v4h2v-4zM6 6h6v6H6V6zm12 0h6v6h-6V6zm-6 12h6v6h-6v-6z"></path></svg>
+                    </button>
+                </div>
+            </div>
+                        <div class="proxy-card glass-card rounded-2xl p-5 relative overflow-hidden group animate-fade-in is-online" 
+                 style="animation-delay: 0.21s"
+                 data-server="194.117.64.12" 
+                 data-port="443" 
+                 data-url="tg://proxy?server=194.117.64.12&amp;port=443&amp;secret=ee1603010200010001fc030386e24c3add626973636f7474692e79656b74616e65742e636f6d">
+                
+                <!-- Status & Type Header -->
+                <div class="flex justify-between items-start mb-4">
+                    <span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider border text-slate-400 bg-slate-400/10 border-slate-400/20">
+                        MTProto TLS                    </span>
+                    <div class="flex items-center gap-1.5">
+                        <span class="text-xs font-bold text-emerald-500">
+                            97ms                        </span>
+                        <span class="relative flex h-2 w-2">
+                            <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>                            <span class="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                        </span>
+                    </div>
+                </div>
+
+                <!-- Info -->
+                <div class="mb-5">
+                    <div class="font-mono text-lg text-slate-200 truncate select-all" title="194.117.64.12">194.117.64.12</div>
+                    <div class="text-sm text-slate-500 font-mono mt-0.5 flex items-center gap-2">
+                        <span>Port: 443</span>
+                    </div>
+                </div>
+
+                <!-- Actions -->
+                <div class="grid grid-cols-4 gap-2 mt-auto">
+                    <a href="tg://proxy?server=194.117.64.12&amp;port=443&amp;secret=ee1603010200010001fc030386e24c3add626973636f7474692e79656b74616e65742e636f6d" class="col-span-2 flex items-center justify-center py-2 rounded-lg bg-emerald-500/10 hover:bg-emerald-500 text-emerald-500 hover:text-white border border-emerald-500/20 transition-all font-medium text-sm gap-1">
+                        Connect
+                    </a>
+                    <button class="col-span-1 copy-btn flex items-center justify-center py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-400 border border-slate-700 transition-all">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>
+                    </button>
+                    <button class="col-span-1 qr-btn flex items-center justify-center py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-400 border border-slate-700 transition-all">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v1m6 11h2m-6 0h-2v4h2v-4zM6 6h6v6H6V6zm12 0h6v6h-6V6zm-6 12h6v6h-6v-6z"></path></svg>
+                    </button>
+                </div>
+            </div>
+                        <div class="proxy-card glass-card rounded-2xl p-5 relative overflow-hidden group animate-fade-in is-online" 
+                 style="animation-delay: 0.24s"
+                 data-server="7kl91.ir.meli-n13.info" 
+                 data-port="8443" 
+                 data-url="tg://proxy?server=7kl91.ir.meli-n13.info&amp;port=8443&amp;secret=104462821249bd7ac519130220c25d09">
+                
+                <!-- Status & Type Header -->
+                <div class="flex justify-between items-start mb-4">
+                    <span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider border text-slate-400 bg-slate-400/10 border-slate-400/20">
+                        MTProto                    </span>
+                    <div class="flex items-center gap-1.5">
+                        <span class="text-xs font-bold text-emerald-500">
+                            117ms                        </span>
+                        <span class="relative flex h-2 w-2">
+                            <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>                            <span class="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                        </span>
+                    </div>
+                </div>
+
+                <!-- Info -->
+                <div class="mb-5">
+                    <div class="font-mono text-lg text-slate-200 truncate select-all" title="7kl91.ir.meli-n13.info">7kl91.ir.meli-n13.info</div>
+                    <div class="text-sm text-slate-500 font-mono mt-0.5 flex items-center gap-2">
+                        <span>Port: 8443</span>
+                    </div>
+                </div>
+
+                <!-- Actions -->
+                <div class="grid grid-cols-4 gap-2 mt-auto">
+                    <a href="tg://proxy?server=7kl91.ir.meli-n13.info&amp;port=8443&amp;secret=104462821249bd7ac519130220c25d09" class="col-span-2 flex items-center justify-center py-2 rounded-lg bg-emerald-500/10 hover:bg-emerald-500 text-emerald-500 hover:text-white border border-emerald-500/20 transition-all font-medium text-sm gap-1">
+                        Connect
+                    </a>
+                    <button class="col-span-1 copy-btn flex items-center justify-center py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-400 border border-slate-700 transition-all">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>
+                    </button>
+                    <button class="col-span-1 qr-btn flex items-center justify-center py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-400 border border-slate-700 transition-all">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v1m6 11h2m-6 0h-2v4h2v-4zM6 6h6v6H6V6zm12 0h6v6h-6V6zm-6 12h6v6h-6v-6z"></path></svg>
+                    </button>
+                </div>
+            </div>
+                        <div class="proxy-card glass-card rounded-2xl p-5 relative overflow-hidden group animate-fade-in is-online" 
+                 style="animation-delay: 0.27s"
+                 data-server="plm6.ir.meli-n13.info" 
+                 data-port="8443" 
+                 data-url="tg://proxy?server=plm6.ir.meli-n13.info&amp;port=8443&amp;secret=104462821249bd7ac519130220c25d09">
+                
+                <!-- Status & Type Header -->
+                <div class="flex justify-between items-start mb-4">
+                    <span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider border text-slate-400 bg-slate-400/10 border-slate-400/20">
+                        MTProto                    </span>
+                    <div class="flex items-center gap-1.5">
+                        <span class="text-xs font-bold text-emerald-500">
+                            122ms                        </span>
+                        <span class="relative flex h-2 w-2">
+                            <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>                            <span class="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                        </span>
+                    </div>
+                </div>
+
+                <!-- Info -->
+                <div class="mb-5">
+                    <div class="font-mono text-lg text-slate-200 truncate select-all" title="plm6.ir.meli-n13.info">plm6.ir.meli-n13.info</div>
+                    <div class="text-sm text-slate-500 font-mono mt-0.5 flex items-center gap-2">
+                        <span>Port: 8443</span>
+                    </div>
+                </div>
+
+                <!-- Actions -->
+                <div class="grid grid-cols-4 gap-2 mt-auto">
+                    <a href="tg://proxy?server=plm6.ir.meli-n13.info&amp;port=8443&amp;secret=104462821249bd7ac519130220c25d09" class="col-span-2 flex items-center justify-center py-2 rounded-lg bg-emerald-500/10 hover:bg-emerald-500 text-emerald-500 hover:text-white border border-emerald-500/20 transition-all font-medium text-sm gap-1">
+                        Connect
+                    </a>
+                    <button class="col-span-1 copy-btn flex items-center justify-center py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-400 border border-slate-700 transition-all">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>
+                    </button>
+                    <button class="col-span-1 qr-btn flex items-center justify-center py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-400 border border-slate-700 transition-all">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v1m6 11h2m-6 0h-2v4h2v-4zM6 6h6v6H6V6zm12 0h6v6h-6V6zm-6 12h6v6h-6v-6z"></path></svg>
+                    </button>
+                </div>
+            </div>
+                        <div class="proxy-card glass-card rounded-2xl p-5 relative overflow-hidden group animate-fade-in is-online" 
+                 style="animation-delay: 0.3s"
+                 data-server="t.meow-network.com" 
+                 data-port="443" 
+                 data-url="tg://proxy?server=t.meow-network.com&amp;port=443&amp;secret=ee5622e11fff3e49bcc85280197a6106b5742e6d656f772d6e6574776f726b2e636f6d">
+                
+                <!-- Status & Type Header -->
+                <div class="flex justify-between items-start mb-4">
+                    <span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider border text-slate-400 bg-slate-400/10 border-slate-400/20">
+                        MTProto TLS                    </span>
+                    <div class="flex items-center gap-1.5">
+                        <span class="text-xs font-bold text-emerald-500">
+                            208ms                        </span>
+                        <span class="relative flex h-2 w-2">
+                            <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>                            <span class="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                        </span>
+                    </div>
+                </div>
+
+                <!-- Info -->
+                <div class="mb-5">
+                    <div class="font-mono text-lg text-slate-200 truncate select-all" title="t.meow-network.com">t.meow-network.com</div>
+                    <div class="text-sm text-slate-500 font-mono mt-0.5 flex items-center gap-2">
+                        <span>Port: 443</span>
+                    </div>
+                </div>
+
+                <!-- Actions -->
+                <div class="grid grid-cols-4 gap-2 mt-auto">
+                    <a href="tg://proxy?server=t.meow-network.com&amp;port=443&amp;secret=ee5622e11fff3e49bcc85280197a6106b5742e6d656f772d6e6574776f726b2e636f6d" class="col-span-2 flex items-center justify-center py-2 rounded-lg bg-emerald-500/10 hover:bg-emerald-500 text-emerald-500 hover:text-white border border-emerald-500/20 transition-all font-medium text-sm gap-1">
+                        Connect
+                    </a>
+                    <button class="col-span-1 copy-btn flex items-center justify-center py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-400 border border-slate-700 transition-all">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>
+                    </button>
+                    <button class="col-span-1 qr-btn flex items-center justify-center py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-400 border border-slate-700 transition-all">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v1m6 11h2m-6 0h-2v4h2v-4zM6 6h6v6H6V6zm12 0h6v6h-6V6zm-6 12h6v6h-6v-6z"></path></svg>
+                    </button>
+                </div>
+            </div>
+                        <div class="proxy-card glass-card rounded-2xl p-5 relative overflow-hidden group animate-fade-in is-online" 
+                 style="animation-delay: 0.33s"
+                 data-server="x.shmelproxy.top" 
+                 data-port="443" 
+                 data-url="tg://proxy?server=x.shmelproxy.top&amp;port=443&amp;secret=eefc2612ff65a557fddf1d1b334395ef237975672d6c696e6b2e7275">
+                
+                <!-- Status & Type Header -->
+                <div class="flex justify-between items-start mb-4">
+                    <span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider border text-slate-400 bg-slate-400/10 border-slate-400/20">
+                        MTProto TLS                    </span>
+                    <div class="flex items-center gap-1.5">
+                        <span class="text-xs font-bold text-emerald-500">
+                            242ms                        </span>
+                        <span class="relative flex h-2 w-2">
+                            <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>                            <span class="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                        </span>
+                    </div>
+                </div>
+
+                <!-- Info -->
+                <div class="mb-5">
+                    <div class="font-mono text-lg text-slate-200 truncate select-all" title="x.shmelproxy.top">x.shmelproxy.top</div>
+                    <div class="text-sm text-slate-500 font-mono mt-0.5 flex items-center gap-2">
+                        <span>Port: 443</span>
+                    </div>
+                </div>
+
+                <!-- Actions -->
+                <div class="grid grid-cols-4 gap-2 mt-auto">
+                    <a href="tg://proxy?server=x.shmelproxy.top&amp;port=443&amp;secret=eefc2612ff65a557fddf1d1b334395ef237975672d6c696e6b2e7275" class="col-span-2 flex items-center justify-center py-2 rounded-lg bg-emerald-500/10 hover:bg-emerald-500 text-emerald-500 hover:text-white border border-emerald-500/20 transition-all font-medium text-sm gap-1">
+                        Connect
+                    </a>
+                    <button class="col-span-1 copy-btn flex items-center justify-center py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-400 border border-slate-700 transition-all">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>
+                    </button>
+                    <button class="col-span-1 qr-btn flex items-center justify-center py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-400 border border-slate-700 transition-all">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v1m6 11h2m-6 0h-2v4h2v-4zM6 6h6v6H6V6zm12 0h6v6h-6V6zm-6 12h6v6h-6v-6z"></path></svg>
+                    </button>
+                </div>
+            </div>
+                        <div class="proxy-card glass-card rounded-2xl p-5 relative overflow-hidden group animate-fade-in is-online" 
+                 style="animation-delay: 0.36s"
+                 data-server="anchor.lovely.lat" 
+                 data-port="443" 
+                 data-url="tg://proxy?server=anchor.lovely.lat&amp;port=443&amp;secret=eeaadd88aa9facd454936d0c42dc128e776d2e6265626f6f2e7275">
+                
+                <!-- Status & Type Header -->
+                <div class="flex justify-between items-start mb-4">
+                    <span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider border text-slate-400 bg-slate-400/10 border-slate-400/20">
+                        MTProto TLS                    </span>
+                    <div class="flex items-center gap-1.5">
+                        <span class="text-xs font-bold text-emerald-500">
+                            256ms                        </span>
+                        <span class="relative flex h-2 w-2">
+                            <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>                            <span class="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                        </span>
+                    </div>
+                </div>
+
+                <!-- Info -->
+                <div class="mb-5">
+                    <div class="font-mono text-lg text-slate-200 truncate select-all" title="anchor.lovely.lat">anchor.lovely.lat</div>
+                    <div class="text-sm text-slate-500 font-mono mt-0.5 flex items-center gap-2">
+                        <span>Port: 443</span>
+                    </div>
+                </div>
+
+                <!-- Actions -->
+                <div class="grid grid-cols-4 gap-2 mt-auto">
+                    <a href="tg://proxy?server=anchor.lovely.lat&amp;port=443&amp;secret=eeaadd88aa9facd454936d0c42dc128e776d2e6265626f6f2e7275" class="col-span-2 flex items-center justify-center py-2 rounded-lg bg-emerald-500/10 hover:bg-emerald-500 text-emerald-500 hover:text-white border border-emerald-500/20 transition-all font-medium text-sm gap-1">
+                        Connect
+                    </a>
+                    <button class="col-span-1 copy-btn flex items-center justify-center py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-400 border border-slate-700 transition-all">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>
+                    </button>
+                    <button class="col-span-1 qr-btn flex items-center justify-center py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-400 border border-slate-700 transition-all">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v1m6 11h2m-6 0h-2v4h2v-4zM6 6h6v6H6V6zm12 0h6v6h-6V6zm-6 12h6v6h-6v-6z"></path></svg>
+                    </button>
+                </div>
+            </div>
+                        <div class="proxy-card glass-card rounded-2xl p-5 relative overflow-hidden group animate-fade-in is-online" 
+                 style="animation-delay: 0.39s"
+                 data-server="Suodbo.co.uk." 
+                 data-port="443" 
+                 data-url="tg://proxy?server=Suodbo.co.uk.&amp;port=443&amp;secret=eef0eeb0bd9adc4fd4a93994ee3b2a216b63646e2e79656b74616e65742e636f6d">
+                
+                <!-- Status & Type Header -->
+                <div class="flex justify-between items-start mb-4">
+                    <span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider border text-slate-400 bg-slate-400/10 border-slate-400/20">
+                        MTProto TLS                    </span>
+                    <div class="flex items-center gap-1.5">
+                        <span class="text-xs font-bold text-emerald-500">
+                            509ms                        </span>
+                        <span class="relative flex h-2 w-2">
+                            <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>                            <span class="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                        </span>
+                    </div>
+                </div>
+
+                <!-- Info -->
+                <div class="mb-5">
+                    <div class="font-mono text-lg text-slate-200 truncate select-all" title="Suodbo.co.uk.">Suodbo.co.uk.</div>
+                    <div class="text-sm text-slate-500 font-mono mt-0.5 flex items-center gap-2">
+                        <span>Port: 443</span>
+                    </div>
+                </div>
+
+                <!-- Actions -->
+                <div class="grid grid-cols-4 gap-2 mt-auto">
+                    <a href="tg://proxy?server=Suodbo.co.uk.&amp;port=443&amp;secret=eef0eeb0bd9adc4fd4a93994ee3b2a216b63646e2e79656b74616e65742e636f6d" class="col-span-2 flex items-center justify-center py-2 rounded-lg bg-emerald-500/10 hover:bg-emerald-500 text-emerald-500 hover:text-white border border-emerald-500/20 transition-all font-medium text-sm gap-1">
+                        Connect
+                    </a>
+                    <button class="col-span-1 copy-btn flex items-center justify-center py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-400 border border-slate-700 transition-all">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>
+                    </button>
+                    <button class="col-span-1 qr-btn flex items-center justify-center py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-400 border border-slate-700 transition-all">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v1m6 11h2m-6 0h-2v4h2v-4zM6 6h6v6H6V6zm12 0h6v6h-6V6zm-6 12h6v6h-6v-6z"></path></svg>
+                    </button>
+                </div>
+            </div>
+                        <div class="proxy-card glass-card rounded-2xl p-5 relative overflow-hidden group animate-fade-in is-online" 
+                 style="animation-delay: 0.42s"
+                 data-server="bala.hastim.co.uk" 
+                 data-port="443" 
+                 data-url="tg://proxy?server=bala.hastim.co.uk&amp;port=443&amp;secret=ee1603010200010001fc030386e24c3add6d656469612e737465616d706f77657265642e636f6d">
+                
+                <!-- Status & Type Header -->
+                <div class="flex justify-between items-start mb-4">
+                    <span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider border text-slate-400 bg-slate-400/10 border-slate-400/20">
+                        MTProto TLS                    </span>
+                    <div class="flex items-center gap-1.5">
+                        <span class="text-xs font-bold text-emerald-500">
+                            640ms                        </span>
+                        <span class="relative flex h-2 w-2">
+                            <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>                            <span class="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                        </span>
+                    </div>
+                </div>
+
+                <!-- Info -->
+                <div class="mb-5">
+                    <div class="font-mono text-lg text-slate-200 truncate select-all" title="bala.hastim.co.uk">bala.hastim.co.uk</div>
+                    <div class="text-sm text-slate-500 font-mono mt-0.5 flex items-center gap-2">
+                        <span>Port: 443</span>
+                    </div>
+                </div>
+
+                <!-- Actions -->
+                <div class="grid grid-cols-4 gap-2 mt-auto">
+                    <a href="tg://proxy?server=bala.hastim.co.uk&amp;port=443&amp;secret=ee1603010200010001fc030386e24c3add6d656469612e737465616d706f77657265642e636f6d" class="col-span-2 flex items-center justify-center py-2 rounded-lg bg-emerald-500/10 hover:bg-emerald-500 text-emerald-500 hover:text-white border border-emerald-500/20 transition-all font-medium text-sm gap-1">
+                        Connect
+                    </a>
+                    <button class="col-span-1 copy-btn flex items-center justify-center py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-400 border border-slate-700 transition-all">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>
+                    </button>
+                    <button class="col-span-1 qr-btn flex items-center justify-center py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-400 border border-slate-700 transition-all">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v1m6 11h2m-6 0h-2v4h2v-4zM6 6h6v6H6V6zm12 0h6v6h-6V6zm-6 12h6v6h-6v-6z"></path></svg>
+                    </button>
+                </div>
+            </div>
+                        <div class="proxy-card glass-card rounded-2xl p-5 relative overflow-hidden group animate-fade-in is-online" 
+                 style="animation-delay: 0.45s"
+                 data-server="jadid.zhigool.co.uk" 
+                 data-port="25565" 
+                 data-url="tg://proxy?server=jadid.zhigool.co.uk&amp;port=25565&amp;secret=ee1603010200010001fc030386e24c3add6d656469612e737465616d706f77657265642e636f6d">
+                
+                <!-- Status & Type Header -->
+                <div class="flex justify-between items-start mb-4">
+                    <span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider border text-slate-400 bg-slate-400/10 border-slate-400/20">
+                        MTProto TLS                    </span>
+                    <div class="flex items-center gap-1.5">
+                        <span class="text-xs font-bold text-emerald-500">
+                            649ms                        </span>
+                        <span class="relative flex h-2 w-2">
+                            <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>                            <span class="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                        </span>
+                    </div>
+                </div>
+
+                <!-- Info -->
+                <div class="mb-5">
+                    <div class="font-mono text-lg text-slate-200 truncate select-all" title="jadid.zhigool.co.uk">jadid.zhigool.co.uk</div>
+                    <div class="text-sm text-slate-500 font-mono mt-0.5 flex items-center gap-2">
+                        <span>Port: 25565</span>
+                    </div>
+                </div>
+
+                <!-- Actions -->
+                <div class="grid grid-cols-4 gap-2 mt-auto">
+                    <a href="tg://proxy?server=jadid.zhigool.co.uk&amp;port=25565&amp;secret=ee1603010200010001fc030386e24c3add6d656469612e737465616d706f77657265642e636f6d" class="col-span-2 flex items-center justify-center py-2 rounded-lg bg-emerald-500/10 hover:bg-emerald-500 text-emerald-500 hover:text-white border border-emerald-500/20 transition-all font-medium text-sm gap-1">
+                        Connect
+                    </a>
+                    <button class="col-span-1 copy-btn flex items-center justify-center py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-400 border border-slate-700 transition-all">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>
+                    </button>
+                    <button class="col-span-1 qr-btn flex items-center justify-center py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-400 border border-slate-700 transition-all">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v1m6 11h2m-6 0h-2v4h2v-4zM6 6h6v6H6V6zm12 0h6v6h-6V6zm-6 12h6v6h-6v-6z"></path></svg>
+                    </button>
+                </div>
+            </div>
+                        <div class="proxy-card glass-card rounded-2xl p-5 relative overflow-hidden group animate-fade-in is-online" 
+                 style="animation-delay: 0.48s"
+                 data-server="media6.happtg.org" 
+                 data-port="443" 
+                 data-url="tg://proxy?server=media6.happtg.org&amp;port=443&amp;secret=ee7391242569590e01416101927d38b565646e732d73686f702e7275">
+                
+                <!-- Status & Type Header -->
+                <div class="flex justify-between items-start mb-4">
+                    <span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider border text-slate-400 bg-slate-400/10 border-slate-400/20">
+                        MTProto TLS                    </span>
+                    <div class="flex items-center gap-1.5">
+                        <span class="text-xs font-bold text-emerald-500">
+                            1304ms                        </span>
+                        <span class="relative flex h-2 w-2">
+                            <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>                            <span class="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                        </span>
+                    </div>
+                </div>
+
+                <!-- Info -->
+                <div class="mb-5">
+                    <div class="font-mono text-lg text-slate-200 truncate select-all" title="media6.happtg.org">media6.happtg.org</div>
+                    <div class="text-sm text-slate-500 font-mono mt-0.5 flex items-center gap-2">
+                        <span>Port: 443</span>
+                    </div>
+                </div>
+
+                <!-- Actions -->
+                <div class="grid grid-cols-4 gap-2 mt-auto">
+                    <a href="tg://proxy?server=media6.happtg.org&amp;port=443&amp;secret=ee7391242569590e01416101927d38b565646e732d73686f702e7275" class="col-span-2 flex items-center justify-center py-2 rounded-lg bg-emerald-500/10 hover:bg-emerald-500 text-emerald-500 hover:text-white border border-emerald-500/20 transition-all font-medium text-sm gap-1">
+                        Connect
+                    </a>
+                    <button class="col-span-1 copy-btn flex items-center justify-center py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-400 border border-slate-700 transition-all">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>
+                    </button>
+                    <button class="col-span-1 qr-btn flex items-center justify-center py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-400 border border-slate-700 transition-all">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v1m6 11h2m-6 0h-2v4h2v-4zM6 6h6v6H6V6zm12 0h6v6h-6V6zm-6 12h6v6h-6v-6z"></path></svg>
+                    </button>
+                </div>
+            </div>
+                        <div class="proxy-card glass-card rounded-2xl p-5 relative overflow-hidden group animate-fade-in is-online" 
+                 style="animation-delay: 0.5s"
+                 data-server="world-mordak.maraton-co.info." 
+                 data-port="443" 
+                 data-url="tg://proxy?server=world-mordak.maraton-co.info.&amp;port=443&amp;secret=ee1603010200010001fc030386e24c3add6d656469612e737465616d706f77657265642e636f6d">
+                
+                <!-- Status & Type Header -->
+                <div class="flex justify-between items-start mb-4">
+                    <span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider border text-slate-400 bg-slate-400/10 border-slate-400/20">
+                        MTProto TLS                    </span>
+                    <div class="flex items-center gap-1.5">
+                        <span class="text-xs font-bold text-emerald-500">
+                            2028ms                        </span>
+                        <span class="relative flex h-2 w-2">
+                            <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>                            <span class="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                        </span>
+                    </div>
+                </div>
+
+                <!-- Info -->
+                <div class="mb-5">
+                    <div class="font-mono text-lg text-slate-200 truncate select-all" title="world-mordak.maraton-co.info.">world-mordak.maraton-co.info.</div>
+                    <div class="text-sm text-slate-500 font-mono mt-0.5 flex items-center gap-2">
+                        <span>Port: 443</span>
+                    </div>
+                </div>
+
+                <!-- Actions -->
+                <div class="grid grid-cols-4 gap-2 mt-auto">
+                    <a href="tg://proxy?server=world-mordak.maraton-co.info.&amp;port=443&amp;secret=ee1603010200010001fc030386e24c3add6d656469612e737465616d706f77657265642e636f6d" class="col-span-2 flex items-center justify-center py-2 rounded-lg bg-emerald-500/10 hover:bg-emerald-500 text-emerald-500 hover:text-white border border-emerald-500/20 transition-all font-medium text-sm gap-1">
+                        Connect
+                    </a>
+                    <button class="col-span-1 copy-btn flex items-center justify-center py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-400 border border-slate-700 transition-all">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>
+                    </button>
+                    <button class="col-span-1 qr-btn flex items-center justify-center py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-400 border border-slate-700 transition-all">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v1m6 11h2m-6 0h-2v4h2v-4zM6 6h6v6H6V6zm12 0h6v6h-6V6zm-6 12h6v6h-6v-6z"></path></svg>
+                    </button>
+                </div>
+            </div>
+                        <div class="proxy-card glass-card rounded-2xl p-5 relative overflow-hidden group animate-fade-in is-online" 
+                 style="animation-delay: 0.5s"
+                 data-server="admin.valmira.co.uk" 
+                 data-port="25565" 
+                 data-url="tg://proxy?server=admin.valmira.co.uk&amp;port=25565&amp;secret=ee1603010200010001fc030386e24c3add6d656469612e737465616d706f77657265642e636f6d">
+                
+                <!-- Status & Type Header -->
+                <div class="flex justify-between items-start mb-4">
+                    <span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider border text-slate-400 bg-slate-400/10 border-slate-400/20">
+                        MTProto TLS                    </span>
+                    <div class="flex items-center gap-1.5">
+                        <span class="text-xs font-bold text-emerald-500">
+                            2101ms                        </span>
+                        <span class="relative flex h-2 w-2">
+                            <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>                            <span class="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                        </span>
+                    </div>
+                </div>
+
+                <!-- Info -->
+                <div class="mb-5">
+                    <div class="font-mono text-lg text-slate-200 truncate select-all" title="admin.valmira.co.uk">admin.valmira.co.uk</div>
+                    <div class="text-sm text-slate-500 font-mono mt-0.5 flex items-center gap-2">
+                        <span>Port: 25565</span>
+                    </div>
+                </div>
+
+                <!-- Actions -->
+                <div class="grid grid-cols-4 gap-2 mt-auto">
+                    <a href="tg://proxy?server=admin.valmira.co.uk&amp;port=25565&amp;secret=ee1603010200010001fc030386e24c3add6d656469612e737465616d706f77657265642e636f6d" class="col-span-2 flex items-center justify-center py-2 rounded-lg bg-emerald-500/10 hover:bg-emerald-500 text-emerald-500 hover:text-white border border-emerald-500/20 transition-all font-medium text-sm gap-1">
+                        Connect
+                    </a>
+                    <button class="col-span-1 copy-btn flex items-center justify-center py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-400 border border-slate-700 transition-all">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>
+                    </button>
+                    <button class="col-span-1 qr-btn flex items-center justify-center py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-400 border border-slate-700 transition-all">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v1m6 11h2m-6 0h-2v4h2v-4zM6 6h6v6H6V6zm12 0h6v6h-6V6zm-6 12h6v6h-6v-6z"></path></svg>
+                    </button>
+                </div>
+            </div>
+                        <div class="proxy-card glass-card rounded-2xl p-5 relative overflow-hidden group animate-fade-in is-online" 
+                 style="animation-delay: 0.5s"
+                 data-server="s8.assetflux.org" 
+                 data-port="443" 
+                 data-url="tg://proxy?server=s8.assetflux.org&amp;port=443&amp;secret=eeaf794bcc20f70b1436b6b92b01b207e26d61676e69742e7275">
+                
+                <!-- Status & Type Header -->
+                <div class="flex justify-between items-start mb-4">
+                    <span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider border text-slate-400 bg-slate-400/10 border-slate-400/20">
+                        MTProto TLS                    </span>
+                    <div class="flex items-center gap-1.5">
+                        <span class="text-xs font-bold text-emerald-500">
+                            2215ms                        </span>
+                        <span class="relative flex h-2 w-2">
+                            <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>                            <span class="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                        </span>
+                    </div>
+                </div>
+
+                <!-- Info -->
+                <div class="mb-5">
+                    <div class="font-mono text-lg text-slate-200 truncate select-all" title="s8.assetflux.org">s8.assetflux.org</div>
+                    <div class="text-sm text-slate-500 font-mono mt-0.5 flex items-center gap-2">
+                        <span>Port: 443</span>
+                    </div>
+                </div>
+
+                <!-- Actions -->
+                <div class="grid grid-cols-4 gap-2 mt-auto">
+                    <a href="tg://proxy?server=s8.assetflux.org&amp;port=443&amp;secret=eeaf794bcc20f70b1436b6b92b01b207e26d61676e69742e7275" class="col-span-2 flex items-center justify-center py-2 rounded-lg bg-emerald-500/10 hover:bg-emerald-500 text-emerald-500 hover:text-white border border-emerald-500/20 transition-all font-medium text-sm gap-1">
+                        Connect
+                    </a>
+                    <button class="col-span-1 copy-btn flex items-center justify-center py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-400 border border-slate-700 transition-all">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>
+                    </button>
+                    <button class="col-span-1 qr-btn flex items-center justify-center py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-400 border border-slate-700 transition-all">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v1m6 11h2m-6 0h-2v4h2v-4zM6 6h6v6H6V6zm12 0h6v6h-6V6zm-6 12h6v6h-6v-6z"></path></svg>
+                    </button>
+                </div>
+            </div>
+                        <div class="proxy-card glass-card rounded-2xl p-5 relative overflow-hidden group animate-fade-in is-online" 
+                 style="animation-delay: 0.5s"
+                 data-server="75pib.life.198-44.ir." 
+                 data-port="8443" 
+                 data-url="tg://proxy?server=75pib.life.198-44.ir.&amp;port=8443&amp;secret=ee6321048187495dfac59a030220c25d8e626973636f7474692e79656b74616e65742e636f6d">
+                
+                <!-- Status & Type Header -->
+                <div class="flex justify-between items-start mb-4">
+                    <span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider border text-slate-400 bg-slate-400/10 border-slate-400/20">
+                        MTProto TLS                    </span>
+                    <div class="flex items-center gap-1.5">
+                        <span class="text-xs font-bold text-emerald-500">
+                            2319ms                        </span>
+                        <span class="relative flex h-2 w-2">
+                            <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>                            <span class="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                        </span>
+                    </div>
+                </div>
+
+                <!-- Info -->
+                <div class="mb-5">
+                    <div class="font-mono text-lg text-slate-200 truncate select-all" title="75pib.life.198-44.ir.">75pib.life.198-44.ir.</div>
+                    <div class="text-sm text-slate-500 font-mono mt-0.5 flex items-center gap-2">
+                        <span>Port: 8443</span>
+                    </div>
+                </div>
+
+                <!-- Actions -->
+                <div class="grid grid-cols-4 gap-2 mt-auto">
+                    <a href="tg://proxy?server=75pib.life.198-44.ir.&amp;port=8443&amp;secret=ee6321048187495dfac59a030220c25d8e626973636f7474692e79656b74616e65742e636f6d" class="col-span-2 flex items-center justify-center py-2 rounded-lg bg-emerald-500/10 hover:bg-emerald-500 text-emerald-500 hover:text-white border border-emerald-500/20 transition-all font-medium text-sm gap-1">
+                        Connect
+                    </a>
+                    <button class="col-span-1 copy-btn flex items-center justify-center py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-400 border border-slate-700 transition-all">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>
+                    </button>
+                    <button class="col-span-1 qr-btn flex items-center justify-center py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-400 border border-slate-700 transition-all">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v1m6 11h2m-6 0h-2v4h2v-4zM6 6h6v6H6V6zm12 0h6v6h-6V6zm-6 12h6v6h-6v-6z"></path></svg>
+                    </button>
+                </div>
+            </div>
+                        <div class="proxy-card glass-card rounded-2xl p-5 relative overflow-hidden group animate-fade-in is-online" 
+                 style="animation-delay: 0.5s"
+                 data-server="new2.lambforkebeb.co.uk" 
+                 data-port="2096" 
+                 data-url="tg://proxy?server=new2.lambforkebeb.co.uk&amp;port=2096&amp;secret=79e344818749bd7ac519130220c25d09">
+                
+                <!-- Status & Type Header -->
+                <div class="flex justify-between items-start mb-4">
+                    <span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider border text-slate-400 bg-slate-400/10 border-slate-400/20">
+                        MTProto                    </span>
+                    <div class="flex items-center gap-1.5">
+                        <span class="text-xs font-bold text-emerald-500">
+                            2494ms                        </span>
+                        <span class="relative flex h-2 w-2">
+                            <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>                            <span class="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                        </span>
+                    </div>
+                </div>
+
+                <!-- Info -->
+                <div class="mb-5">
+                    <div class="font-mono text-lg text-slate-200 truncate select-all" title="new2.lambforkebeb.co.uk">new2.lambforkebeb.co.uk</div>
+                    <div class="text-sm text-slate-500 font-mono mt-0.5 flex items-center gap-2">
+                        <span>Port: 2096</span>
+                    </div>
+                </div>
+
+                <!-- Actions -->
+                <div class="grid grid-cols-4 gap-2 mt-auto">
+                    <a href="tg://proxy?server=new2.lambforkebeb.co.uk&amp;port=2096&amp;secret=79e344818749bd7ac519130220c25d09" class="col-span-2 flex items-center justify-center py-2 rounded-lg bg-emerald-500/10 hover:bg-emerald-500 text-emerald-500 hover:text-white border border-emerald-500/20 transition-all font-medium text-sm gap-1">
+                        Connect
+                    </a>
+                    <button class="col-span-1 copy-btn flex items-center justify-center py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-400 border border-slate-700 transition-all">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>
+                    </button>
+                    <button class="col-span-1 qr-btn flex items-center justify-center py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-400 border border-slate-700 transition-all">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v1m6 11h2m-6 0h-2v4h2v-4zM6 6h6v6H6V6zm12 0h6v6h-6V6zm-6 12h6v6h-6v-6z"></path></svg>
+                    </button>
+                </div>
+            </div>
+                        <div class="proxy-card glass-card rounded-2xl p-5 relative overflow-hidden group animate-fade-in is-online" 
+                 style="animation-delay: 0.5s"
+                 data-server="rain.lavazemi2.co.uk" 
+                 data-port="2053" 
+                 data-url="tg://proxy?server=rain.lavazemi2.co.uk&amp;port=2053&amp;secret=79e344818749bd7ac519130220c25d09">
+                
+                <!-- Status & Type Header -->
+                <div class="flex justify-between items-start mb-4">
+                    <span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider border text-slate-400 bg-slate-400/10 border-slate-400/20">
+                        MTProto                    </span>
+                    <div class="flex items-center gap-1.5">
+                        <span class="text-xs font-bold text-emerald-500">
+                            2615ms                        </span>
+                        <span class="relative flex h-2 w-2">
+                            <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>                            <span class="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                        </span>
+                    </div>
+                </div>
+
+                <!-- Info -->
+                <div class="mb-5">
+                    <div class="font-mono text-lg text-slate-200 truncate select-all" title="rain.lavazemi2.co.uk">rain.lavazemi2.co.uk</div>
+                    <div class="text-sm text-slate-500 font-mono mt-0.5 flex items-center gap-2">
+                        <span>Port: 2053</span>
+                    </div>
+                </div>
+
+                <!-- Actions -->
+                <div class="grid grid-cols-4 gap-2 mt-auto">
+                    <a href="tg://proxy?server=rain.lavazemi2.co.uk&amp;port=2053&amp;secret=79e344818749bd7ac519130220c25d09" class="col-span-2 flex items-center justify-center py-2 rounded-lg bg-emerald-500/10 hover:bg-emerald-500 text-emerald-500 hover:text-white border border-emerald-500/20 transition-all font-medium text-sm gap-1">
+                        Connect
+                    </a>
+                    <button class="col-span-1 copy-btn flex items-center justify-center py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-400 border border-slate-700 transition-all">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>
+                    </button>
+                    <button class="col-span-1 qr-btn flex items-center justify-center py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-400 border border-slate-700 transition-all">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v1m6 11h2m-6 0h-2v4h2v-4zM6 6h6v6H6V6zm12 0h6v6h-6V6zm-6 12h6v6h-6v-6z"></path></svg>
+                    </button>
+                </div>
+            </div>
+                        <div class="proxy-card glass-card rounded-2xl p-5 relative overflow-hidden group animate-fade-in opacity-50 grayscale hover:grayscale-0" 
+                 style="animation-delay: 0.5s"
+                 data-server="os.vechnostnet.study" 
+                 data-port="443" 
+                 data-url="tg://proxy?server=os.vechnostnet.study&amp;port=443&amp;secret=ee5cfacb7941f6260de34393a10d2b1d7d7374726d2e79616e6465782e6e6574">
+                
+                <!-- Status & Type Header -->
+                <div class="flex justify-between items-start mb-4">
+                    <span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider border text-slate-400 bg-slate-400/10 border-slate-400/20">
+                        MTProto TLS                    </span>
+                    <div class="flex items-center gap-1.5">
+                        <span class="text-xs font-bold text-red-500">
+                            OFF                        </span>
+                        <span class="relative flex h-2 w-2">
+                                                        <span class="relative inline-flex rounded-full h-2 w-2 bg-red-500"></span>
+                        </span>
+                    </div>
+                </div>
+
+                <!-- Info -->
+                <div class="mb-5">
+                    <div class="font-mono text-lg text-slate-200 truncate select-all" title="os.vechnostnet.study">os.vechnostnet.study</div>
+                    <div class="text-sm text-slate-500 font-mono mt-0.5 flex items-center gap-2">
+                        <span>Port: 443</span>
+                    </div>
+                </div>
+
+                <!-- Actions -->
+                <div class="grid grid-cols-4 gap-2 mt-auto">
+                    <a href="tg://proxy?server=os.vechnostnet.study&amp;port=443&amp;secret=ee5cfacb7941f6260de34393a10d2b1d7d7374726d2e79616e6465782e6e6574" class="col-span-2 flex items-center justify-center py-2 rounded-lg bg-emerald-500/10 hover:bg-emerald-500 text-emerald-500 hover:text-white border border-emerald-500/20 transition-all font-medium text-sm gap-1">
+                        Connect
+                    </a>
+                    <button class="col-span-1 copy-btn flex items-center justify-center py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-400 border border-slate-700 transition-all">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>
+                    </button>
+                    <button class="col-span-1 qr-btn flex items-center justify-center py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-400 border border-slate-700 transition-all">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v1m6 11h2m-6 0h-2v4h2v-4zM6 6h6v6H6V6zm12 0h6v6h-6V6zm-6 12h6v6h-6v-6z"></path></svg>
+                    </button>
+                </div>
+            </div>
+                        <div class="proxy-card glass-card rounded-2xl p-5 relative overflow-hidden group animate-fade-in opacity-50 grayscale hover:grayscale-0" 
+                 style="animation-delay: 0.5s"
+                 data-server="relay.rknsosi.shop" 
+                 data-port="443" 
+                 data-url="tg://proxy?server=relay.rknsosi.shop&amp;port=443&amp;secret=ee93e8816b5fd5c054bc95442701329e0072656c61792e726b6e736f73692e73686f70">
+                
+                <!-- Status & Type Header -->
+                <div class="flex justify-between items-start mb-4">
+                    <span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider border text-slate-400 bg-slate-400/10 border-slate-400/20">
+                        MTProto TLS                    </span>
+                    <div class="flex items-center gap-1.5">
+                        <span class="text-xs font-bold text-red-500">
+                            OFF                        </span>
+                        <span class="relative flex h-2 w-2">
+                                                        <span class="relative inline-flex rounded-full h-2 w-2 bg-red-500"></span>
+                        </span>
+                    </div>
+                </div>
+
+                <!-- Info -->
+                <div class="mb-5">
+                    <div class="font-mono text-lg text-slate-200 truncate select-all" title="relay.rknsosi.shop">relay.rknsosi.shop</div>
+                    <div class="text-sm text-slate-500 font-mono mt-0.5 flex items-center gap-2">
+                        <span>Port: 443</span>
+                    </div>
+                </div>
+
+                <!-- Actions -->
+                <div class="grid grid-cols-4 gap-2 mt-auto">
+                    <a href="tg://proxy?server=relay.rknsosi.shop&amp;port=443&amp;secret=ee93e8816b5fd5c054bc95442701329e0072656c61792e726b6e736f73692e73686f70" class="col-span-2 flex items-center justify-center py-2 rounded-lg bg-emerald-500/10 hover:bg-emerald-500 text-emerald-500 hover:text-white border border-emerald-500/20 transition-all font-medium text-sm gap-1">
+                        Connect
+                    </a>
+                    <button class="col-span-1 copy-btn flex items-center justify-center py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-400 border border-slate-700 transition-all">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>
+                    </button>
+                    <button class="col-span-1 qr-btn flex items-center justify-center py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-400 border border-slate-700 transition-all">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v1m6 11h2m-6 0h-2v4h2v-4zM6 6h6v6H6V6zm12 0h6v6h-6V6zm-6 12h6v6h-6v-6z"></path></svg>
+                    </button>
+                </div>
+            </div>
+                        <div class="proxy-card glass-card rounded-2xl p-5 relative overflow-hidden group animate-fade-in opacity-50 grayscale hover:grayscale-0" 
+                 style="animation-delay: 0.5s"
+                 data-server="freeconnect.lol" 
+                 data-port="443" 
+                 data-url="tg://proxy?server=freeconnect.lol&amp;port=443&amp;secret=eef7a565db46f8f5bf156054d86db42969617669746f2e7275">
+                
+                <!-- Status & Type Header -->
+                <div class="flex justify-between items-start mb-4">
+                    <span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider border text-slate-400 bg-slate-400/10 border-slate-400/20">
+                        MTProto TLS                    </span>
+                    <div class="flex items-center gap-1.5">
+                        <span class="text-xs font-bold text-red-500">
+                            OFF                        </span>
+                        <span class="relative flex h-2 w-2">
+                                                        <span class="relative inline-flex rounded-full h-2 w-2 bg-red-500"></span>
+                        </span>
+                    </div>
+                </div>
+
+                <!-- Info -->
+                <div class="mb-5">
+                    <div class="font-mono text-lg text-slate-200 truncate select-all" title="freeconnect.lol">freeconnect.lol</div>
+                    <div class="text-sm text-slate-500 font-mono mt-0.5 flex items-center gap-2">
+                        <span>Port: 443</span>
+                    </div>
+                </div>
+
+                <!-- Actions -->
+                <div class="grid grid-cols-4 gap-2 mt-auto">
+                    <a href="tg://proxy?server=freeconnect.lol&amp;port=443&amp;secret=eef7a565db46f8f5bf156054d86db42969617669746f2e7275" class="col-span-2 flex items-center justify-center py-2 rounded-lg bg-emerald-500/10 hover:bg-emerald-500 text-emerald-500 hover:text-white border border-emerald-500/20 transition-all font-medium text-sm gap-1">
+                        Connect
+                    </a>
+                    <button class="col-span-1 copy-btn flex items-center justify-center py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-400 border border-slate-700 transition-all">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>
+                    </button>
+                    <button class="col-span-1 qr-btn flex items-center justify-center py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-400 border border-slate-700 transition-all">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v1m6 11h2m-6 0h-2v4h2v-4zM6 6h6v6H6V6zm12 0h6v6h-6V6zm-6 12h6v6h-6v-6z"></path></svg>
+                    </button>
+                </div>
+            </div>
+                        <div class="proxy-card glass-card rounded-2xl p-5 relative overflow-hidden group animate-fade-in opacity-50 grayscale hover:grayscale-0" 
+                 style="animation-delay: 0.5s"
+                 data-server="nyakawai.shop" 
+                 data-port="443" 
+                 data-url="tg://proxy?server=nyakawai.shop&amp;port=443&amp;secret=eefddb26d5047ce1787ece232a57832391617669746f2e7275">
+                
+                <!-- Status & Type Header -->
+                <div class="flex justify-between items-start mb-4">
+                    <span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider border text-slate-400 bg-slate-400/10 border-slate-400/20">
+                        MTProto TLS                    </span>
+                    <div class="flex items-center gap-1.5">
+                        <span class="text-xs font-bold text-red-500">
+                            OFF                        </span>
+                        <span class="relative flex h-2 w-2">
+                                                        <span class="relative inline-flex rounded-full h-2 w-2 bg-red-500"></span>
+                        </span>
+                    </div>
+                </div>
+
+                <!-- Info -->
+                <div class="mb-5">
+                    <div class="font-mono text-lg text-slate-200 truncate select-all" title="nyakawai.shop">nyakawai.shop</div>
+                    <div class="text-sm text-slate-500 font-mono mt-0.5 flex items-center gap-2">
+                        <span>Port: 443</span>
+                    </div>
+                </div>
+
+                <!-- Actions -->
+                <div class="grid grid-cols-4 gap-2 mt-auto">
+                    <a href="tg://proxy?server=nyakawai.shop&amp;port=443&amp;secret=eefddb26d5047ce1787ece232a57832391617669746f2e7275" class="col-span-2 flex items-center justify-center py-2 rounded-lg bg-emerald-500/10 hover:bg-emerald-500 text-emerald-500 hover:text-white border border-emerald-500/20 transition-all font-medium text-sm gap-1">
+                        Connect
+                    </a>
+                    <button class="col-span-1 copy-btn flex items-center justify-center py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-400 border border-slate-700 transition-all">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>
+                    </button>
+                    <button class="col-span-1 qr-btn flex items-center justify-center py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-400 border border-slate-700 transition-all">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v1m6 11h2m-6 0h-2v4h2v-4zM6 6h6v6H6V6zm12 0h6v6h-6V6zm-6 12h6v6h-6v-6z"></path></svg>
+                    </button>
+                </div>
+            </div>
+                        <div class="proxy-card glass-card rounded-2xl p-5 relative overflow-hidden group animate-fade-in opacity-50 grayscale hover:grayscale-0" 
+                 style="animation-delay: 0.5s"
+                 data-server="beam.whitelist.cyou" 
+                 data-port="443" 
+                 data-url="tg://proxy?server=beam.whitelist.cyou&amp;port=443&amp;secret=ee96671dab2ecd8b178da5371b6081550b6265616d2e77686974656c6973742e63796f75">
+                
+                <!-- Status & Type Header -->
+                <div class="flex justify-between items-start mb-4">
+                    <span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider border text-slate-400 bg-slate-400/10 border-slate-400/20">
+                        MTProto TLS                    </span>
+                    <div class="flex items-center gap-1.5">
+                        <span class="text-xs font-bold text-red-500">
+                            OFF                        </span>
+                        <span class="relative flex h-2 w-2">
+                                                        <span class="relative inline-flex rounded-full h-2 w-2 bg-red-500"></span>
+                        </span>
+                    </div>
+                </div>
+
+                <!-- Info -->
+                <div class="mb-5">
+                    <div class="font-mono text-lg text-slate-200 truncate select-all" title="beam.whitelist.cyou">beam.whitelist.cyou</div>
+                    <div class="text-sm text-slate-500 font-mono mt-0.5 flex items-center gap-2">
+                        <span>Port: 443</span>
+                    </div>
+                </div>
+
+                <!-- Actions -->
+                <div class="grid grid-cols-4 gap-2 mt-auto">
+                    <a href="tg://proxy?server=beam.whitelist.cyou&amp;port=443&amp;secret=ee96671dab2ecd8b178da5371b6081550b6265616d2e77686974656c6973742e63796f75" class="col-span-2 flex items-center justify-center py-2 rounded-lg bg-emerald-500/10 hover:bg-emerald-500 text-emerald-500 hover:text-white border border-emerald-500/20 transition-all font-medium text-sm gap-1">
+                        Connect
+                    </a>
+                    <button class="col-span-1 copy-btn flex items-center justify-center py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-400 border border-slate-700 transition-all">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>
+                    </button>
+                    <button class="col-span-1 qr-btn flex items-center justify-center py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-400 border border-slate-700 transition-all">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v1m6 11h2m-6 0h-2v4h2v-4zM6 6h6v6H6V6zm12 0h6v6h-6V6zm-6 12h6v6h-6v-6z"></path></svg>
+                    </button>
+                </div>
+            </div>
+                        <div class="proxy-card glass-card rounded-2xl p-5 relative overflow-hidden group animate-fade-in opacity-50 grayscale hover:grayscale-0" 
+                 style="animation-delay: 0.5s"
+                 data-server="node.easyproxy.cfd" 
+                 data-port="443" 
+                 data-url="tg://proxy?server=node.easyproxy.cfd&amp;port=443&amp;secret=ee6be95a795ee766da019cd30044b837c16e6f64652e6561737970726f78792e636664">
+                
+                <!-- Status & Type Header -->
+                <div class="flex justify-between items-start mb-4">
+                    <span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider border text-slate-400 bg-slate-400/10 border-slate-400/20">
+                        MTProto TLS                    </span>
+                    <div class="flex items-center gap-1.5">
+                        <span class="text-xs font-bold text-red-500">
+                            OFF                        </span>
+                        <span class="relative flex h-2 w-2">
+                                                        <span class="relative inline-flex rounded-full h-2 w-2 bg-red-500"></span>
+                        </span>
+                    </div>
+                </div>
+
+                <!-- Info -->
+                <div class="mb-5">
+                    <div class="font-mono text-lg text-slate-200 truncate select-all" title="node.easyproxy.cfd">node.easyproxy.cfd</div>
+                    <div class="text-sm text-slate-500 font-mono mt-0.5 flex items-center gap-2">
+                        <span>Port: 443</span>
+                    </div>
+                </div>
+
+                <!-- Actions -->
+                <div class="grid grid-cols-4 gap-2 mt-auto">
+                    <a href="tg://proxy?server=node.easyproxy.cfd&amp;port=443&amp;secret=ee6be95a795ee766da019cd30044b837c16e6f64652e6561737970726f78792e636664" class="col-span-2 flex items-center justify-center py-2 rounded-lg bg-emerald-500/10 hover:bg-emerald-500 text-emerald-500 hover:text-white border border-emerald-500/20 transition-all font-medium text-sm gap-1">
+                        Connect
+                    </a>
+                    <button class="col-span-1 copy-btn flex items-center justify-center py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-400 border border-slate-700 transition-all">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>
+                    </button>
+                    <button class="col-span-1 qr-btn flex items-center justify-center py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-400 border border-slate-700 transition-all">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v1m6 11h2m-6 0h-2v4h2v-4zM6 6h6v6H6V6zm12 0h6v6h-6V6zm-6 12h6v6h-6v-6z"></path></svg>
+                    </button>
+                </div>
+            </div>
+                        <div class="proxy-card glass-card rounded-2xl p-5 relative overflow-hidden group animate-fade-in opacity-50 grayscale hover:grayscale-0" 
+                 style="animation-delay: 0.5s"
+                 data-server="megaconnect.click" 
+                 data-port="443" 
+                 data-url="tg://proxy?server=megaconnect.click&amp;port=443&amp;secret=ee283d3bf19b80aa8a9ca06a2244c01c8a617669746f2e7275">
+                
+                <!-- Status & Type Header -->
+                <div class="flex justify-between items-start mb-4">
+                    <span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider border text-slate-400 bg-slate-400/10 border-slate-400/20">
+                        MTProto TLS                    </span>
+                    <div class="flex items-center gap-1.5">
+                        <span class="text-xs font-bold text-red-500">
+                            OFF                        </span>
+                        <span class="relative flex h-2 w-2">
+                                                        <span class="relative inline-flex rounded-full h-2 w-2 bg-red-500"></span>
+                        </span>
+                    </div>
+                </div>
+
+                <!-- Info -->
+                <div class="mb-5">
+                    <div class="font-mono text-lg text-slate-200 truncate select-all" title="megaconnect.click">megaconnect.click</div>
+                    <div class="text-sm text-slate-500 font-mono mt-0.5 flex items-center gap-2">
+                        <span>Port: 443</span>
+                    </div>
+                </div>
+
+                <!-- Actions -->
+                <div class="grid grid-cols-4 gap-2 mt-auto">
+                    <a href="tg://proxy?server=megaconnect.click&amp;port=443&amp;secret=ee283d3bf19b80aa8a9ca06a2244c01c8a617669746f2e7275" class="col-span-2 flex items-center justify-center py-2 rounded-lg bg-emerald-500/10 hover:bg-emerald-500 text-emerald-500 hover:text-white border border-emerald-500/20 transition-all font-medium text-sm gap-1">
+                        Connect
+                    </a>
+                    <button class="col-span-1 copy-btn flex items-center justify-center py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-400 border border-slate-700 transition-all">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>
+                    </button>
+                    <button class="col-span-1 qr-btn flex items-center justify-center py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-400 border border-slate-700 transition-all">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v1m6 11h2m-6 0h-2v4h2v-4zM6 6h6v6H6V6zm12 0h6v6h-6V6zm-6 12h6v6h-6v-6z"></path></svg>
+                    </button>
+                </div>
+            </div>
+                        <div class="proxy-card glass-card rounded-2xl p-5 relative overflow-hidden group animate-fade-in opacity-50 grayscale hover:grayscale-0" 
+                 style="animation-delay: 0.5s"
+                 data-server="help.joumalanet.co.uk" 
+                 data-port="443" 
+                 data-url="tg://proxy?server=help.joumalanet.co.uk&amp;port=443&amp;secret=eef0eeb0bd9adc4fd4a93994ee3b2a216b7765622e62616c652e6169">
+                
+                <!-- Status & Type Header -->
+                <div class="flex justify-between items-start mb-4">
+                    <span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider border text-slate-400 bg-slate-400/10 border-slate-400/20">
+                        MTProto TLS                    </span>
+                    <div class="flex items-center gap-1.5">
+                        <span class="text-xs font-bold text-red-500">
+                            OFF                        </span>
+                        <span class="relative flex h-2 w-2">
+                                                        <span class="relative inline-flex rounded-full h-2 w-2 bg-red-500"></span>
+                        </span>
+                    </div>
+                </div>
+
+                <!-- Info -->
+                <div class="mb-5">
+                    <div class="font-mono text-lg text-slate-200 truncate select-all" title="help.joumalanet.co.uk">help.joumalanet.co.uk</div>
+                    <div class="text-sm text-slate-500 font-mono mt-0.5 flex items-center gap-2">
+                        <span>Port: 443</span>
+                    </div>
+                </div>
+
+                <!-- Actions -->
+                <div class="grid grid-cols-4 gap-2 mt-auto">
+                    <a href="tg://proxy?server=help.joumalanet.co.uk&amp;port=443&amp;secret=eef0eeb0bd9adc4fd4a93994ee3b2a216b7765622e62616c652e6169" class="col-span-2 flex items-center justify-center py-2 rounded-lg bg-emerald-500/10 hover:bg-emerald-500 text-emerald-500 hover:text-white border border-emerald-500/20 transition-all font-medium text-sm gap-1">
+                        Connect
+                    </a>
+                    <button class="col-span-1 copy-btn flex items-center justify-center py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-400 border border-slate-700 transition-all">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>
+                    </button>
+                    <button class="col-span-1 qr-btn flex items-center justify-center py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-400 border border-slate-700 transition-all">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v1m6 11h2m-6 0h-2v4h2v-4zM6 6h6v6H6V6zm12 0h6v6h-6V6zm-6 12h6v6h-6v-6z"></path></svg>
+                    </button>
+                </div>
+            </div>
+                        <div class="proxy-card glass-card rounded-2xl p-5 relative overflow-hidden group animate-fade-in opacity-50 grayscale hover:grayscale-0" 
+                 style="animation-delay: 0.5s"
+                 data-server="cdn7.cdnwave.org" 
+                 data-port="443" 
+                 data-url="tg://proxy?server=cdn7.cdnwave.org&amp;port=443&amp;secret=ee6ec9f7e082baf2397b450727ce78447e6f7a6f6e2e7275">
+                
+                <!-- Status & Type Header -->
+                <div class="flex justify-between items-start mb-4">
+                    <span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider border text-slate-400 bg-slate-400/10 border-slate-400/20">
+                        MTProto TLS                    </span>
+                    <div class="flex items-center gap-1.5">
+                        <span class="text-xs font-bold text-red-500">
+                            OFF                        </span>
+                        <span class="relative flex h-2 w-2">
+                                                        <span class="relative inline-flex rounded-full h-2 w-2 bg-red-500"></span>
+                        </span>
+                    </div>
+                </div>
+
+                <!-- Info -->
+                <div class="mb-5">
+                    <div class="font-mono text-lg text-slate-200 truncate select-all" title="cdn7.cdnwave.org">cdn7.cdnwave.org</div>
+                    <div class="text-sm text-slate-500 font-mono mt-0.5 flex items-center gap-2">
+                        <span>Port: 443</span>
+                    </div>
+                </div>
+
+                <!-- Actions -->
+                <div class="grid grid-cols-4 gap-2 mt-auto">
+                    <a href="tg://proxy?server=cdn7.cdnwave.org&amp;port=443&amp;secret=ee6ec9f7e082baf2397b450727ce78447e6f7a6f6e2e7275" class="col-span-2 flex items-center justify-center py-2 rounded-lg bg-emerald-500/10 hover:bg-emerald-500 text-emerald-500 hover:text-white border border-emerald-500/20 transition-all font-medium text-sm gap-1">
+                        Connect
+                    </a>
+                    <button class="col-span-1 copy-btn flex items-center justify-center py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-400 border border-slate-700 transition-all">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>
+                    </button>
+                    <button class="col-span-1 qr-btn flex items-center justify-center py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-400 border border-slate-700 transition-all">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v1m6 11h2m-6 0h-2v4h2v-4zM6 6h6v6H6V6zm12 0h6v6h-6V6zm-6 12h6v6h-6v-6z"></path></svg>
+                    </button>
+                </div>
+            </div>
+                        <div class="proxy-card glass-card rounded-2xl p-5 relative overflow-hidden group animate-fade-in opacity-50 grayscale hover:grayscale-0" 
+                 style="animation-delay: 0.5s"
+                 data-server="god.startnetwork.shop" 
+                 data-port="443" 
+                 data-url="tg://proxy?server=god.startnetwork.shop&amp;port=443&amp;secret=ee1b12072197f503e7b598f0faaa982f767374726d2e79616e6465782e6e6574">
+                
+                <!-- Status & Type Header -->
+                <div class="flex justify-between items-start mb-4">
+                    <span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider border text-slate-400 bg-slate-400/10 border-slate-400/20">
+                        MTProto TLS                    </span>
+                    <div class="flex items-center gap-1.5">
+                        <span class="text-xs font-bold text-red-500">
+                            OFF                        </span>
+                        <span class="relative flex h-2 w-2">
+                                                        <span class="relative inline-flex rounded-full h-2 w-2 bg-red-500"></span>
+                        </span>
+                    </div>
+                </div>
+
+                <!-- Info -->
+                <div class="mb-5">
+                    <div class="font-mono text-lg text-slate-200 truncate select-all" title="god.startnetwork.shop">god.startnetwork.shop</div>
+                    <div class="text-sm text-slate-500 font-mono mt-0.5 flex items-center gap-2">
+                        <span>Port: 443</span>
+                    </div>
+                </div>
+
+                <!-- Actions -->
+                <div class="grid grid-cols-4 gap-2 mt-auto">
+                    <a href="tg://proxy?server=god.startnetwork.shop&amp;port=443&amp;secret=ee1b12072197f503e7b598f0faaa982f767374726d2e79616e6465782e6e6574" class="col-span-2 flex items-center justify-center py-2 rounded-lg bg-emerald-500/10 hover:bg-emerald-500 text-emerald-500 hover:text-white border border-emerald-500/20 transition-all font-medium text-sm gap-1">
+                        Connect
+                    </a>
+                    <button class="col-span-1 copy-btn flex items-center justify-center py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-400 border border-slate-700 transition-all">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>
+                    </button>
+                    <button class="col-span-1 qr-btn flex items-center justify-center py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-400 border border-slate-700 transition-all">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v1m6 11h2m-6 0h-2v4h2v-4zM6 6h6v6H6V6zm12 0h6v6h-6V6zm-6 12h6v6h-6v-6z"></path></svg>
+                    </button>
+                </div>
+            </div>
+                        <div class="proxy-card glass-card rounded-2xl p-5 relative overflow-hidden group animate-fade-in opacity-50 grayscale hover:grayscale-0" 
+                 style="animation-delay: 0.5s"
+                 data-server="bolt.utkanos.life" 
+                 data-port="2443" 
+                 data-url="tg://proxy?server=bolt.utkanos.life&amp;port=2443&amp;secret=eefcc4cf72e265ef4e47068bfe3fbd44fb626f6c742e75746b616e6f732e6c696665">
+                
+                <!-- Status & Type Header -->
+                <div class="flex justify-between items-start mb-4">
+                    <span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider border text-slate-400 bg-slate-400/10 border-slate-400/20">
+                        MTProto TLS                    </span>
+                    <div class="flex items-center gap-1.5">
+                        <span class="text-xs font-bold text-red-500">
+                            OFF                        </span>
+                        <span class="relative flex h-2 w-2">
+                                                        <span class="relative inline-flex rounded-full h-2 w-2 bg-red-500"></span>
+                        </span>
+                    </div>
+                </div>
+
+                <!-- Info -->
+                <div class="mb-5">
+                    <div class="font-mono text-lg text-slate-200 truncate select-all" title="bolt.utkanos.life">bolt.utkanos.life</div>
+                    <div class="text-sm text-slate-500 font-mono mt-0.5 flex items-center gap-2">
+                        <span>Port: 2443</span>
+                    </div>
+                </div>
+
+                <!-- Actions -->
+                <div class="grid grid-cols-4 gap-2 mt-auto">
+                    <a href="tg://proxy?server=bolt.utkanos.life&amp;port=2443&amp;secret=eefcc4cf72e265ef4e47068bfe3fbd44fb626f6c742e75746b616e6f732e6c696665" class="col-span-2 flex items-center justify-center py-2 rounded-lg bg-emerald-500/10 hover:bg-emerald-500 text-emerald-500 hover:text-white border border-emerald-500/20 transition-all font-medium text-sm gap-1">
+                        Connect
+                    </a>
+                    <button class="col-span-1 copy-btn flex items-center justify-center py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-400 border border-slate-700 transition-all">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>
+                    </button>
+                    <button class="col-span-1 qr-btn flex items-center justify-center py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-400 border border-slate-700 transition-all">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v1m6 11h2m-6 0h-2v4h2v-4zM6 6h6v6H6V6zm12 0h6v6h-6V6zm-6 12h6v6h-6v-6z"></path></svg>
+                    </button>
+                </div>
+            </div>
+                    </div>
+    </div>
+
+    <!-- QR Modal -->
+    <div id="qr-modal" class="fixed inset-0 z-50 flex items-center justify-center opacity-0 pointer-events-none transition-opacity duration-300 bg-black/80 backdrop-blur-sm">
+        <div class="bg-slate-900 border border-slate-700 p-6 rounded-3xl transform scale-95 transition-transform duration-300 modal-content text-center shadow-2xl">
+            <h3 class="text-lg font-bold text-white mb-4">Scan to Connect</h3>
+            <div id="qrcode" class="p-2 bg-white rounded-xl mx-auto mb-4 w-[220px] h-[220px]"></div>
+            <button id="close-modal" class="px-6 py-2 rounded-full bg-slate-800 hover:bg-slate-700 text-white transition-colors text-sm">Close</button>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const grid = document.getElementById('proxy-grid');
+            const searchInput = document.getElementById('proxy-search');
+            const resultCount = document.getElementById('result-count');
+            const cards = Array.from(document.querySelectorAll('.proxy-card'));
+
+            // 1. Search Logic
+            searchInput.addEventListener('input', (e) => {
+                const term = e.target.value.toLowerCase();
+                let visible = 0;
+                
+                cards.forEach(card => {
+                    const server = card.dataset.server.toLowerCase();
+                    const port = card.dataset.port;
+                    const match = server.includes(term) || port.includes(term);
+                    
+                    if(match) {
+                        card.style.display = 'block';
+                        visible++;
+                    } else {
+                        card.style.display = 'none';
+                    }
+                });
+                resultCount.textContent = `Showing ${visible} proxies`;
+            });
+
+            // 2. Export All Online Logic
+            document.getElementById('export-btn').addEventListener('click', () => {
+                const onlineCards = document.querySelectorAll('.proxy-card.is-online');
+                let exportText = "";
+                onlineCards.forEach(card => {
+                    exportText += card.dataset.url + "\n";
+                });
+                
+                if(!exportText) return alert('No online proxies to export!');
+                
+                navigator.clipboard.writeText(exportText).then(() => {
+                    const btn = document.getElementById('export-btn');
+                    const originalHTML = btn.innerHTML;
+                    btn.innerHTML = `<span class="text-emerald-400 font-bold">Copied ${onlineCards.length} Proxies!</span>`;
+                    setTimeout(() => btn.innerHTML = originalHTML, 2000);
+                });
+            });
+
+            // 3. Time Ago Logic
+            const timeElement = document.getElementById('time-ago');
+            const timestamp = parseInt(timeElement.dataset.timestamp) * 1000;
+            
+            function updateTime() {
+                const seconds = Math.floor((new Date() - timestamp) / 1000);
+                let interval = seconds / 31536000;
+                if (interval > 1) return timeElement.innerText = Math.floor(interval) + " years ago";
+                interval = seconds / 2592000;
+                if (interval > 1) return timeElement.innerText = Math.floor(interval) + " months ago";
+                interval = seconds / 86400;
+                if (interval > 1) return timeElement.innerText = Math.floor(interval) + " days ago";
+                interval = seconds / 3600;
+                if (interval > 1) return timeElement.innerText = Math.floor(interval) + " hours ago";
+                interval = seconds / 60;
+                if (interval > 1) return timeElement.innerText = Math.floor(interval) + " mins ago";
+                return timeElement.innerText = "just now";
+            }
+            updateTime();
+            setInterval(updateTime, 60000);
+
+            // 4. Copy & QR Interactions
+            grid.addEventListener('click', (e) => {
+                if (e.target.closest('.copy-btn')) {
+                    const btn = e.target.closest('.copy-btn');
+                    const url = btn.closest('.proxy-card').dataset.url;
+                    navigator.clipboard.writeText(url);
+                    btn.innerHTML = `<svg class="w-4 h-4 text-emerald-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>`;
+                    setTimeout(() => btn.innerHTML = `<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>`, 1500);
+                }
+            });
+
+            // Modal Logic
+            const modal = document.getElementById('qr-modal');
+            const qrContainer = document.getElementById('qrcode');
+            
+            grid.addEventListener('click', (e) => {
+                if (e.target.closest('.qr-btn')) {
+                    const url = e.target.closest('.proxy-card').dataset.url;
+                    qrContainer.innerHTML = '';
+                    new QRCode(qrContainer, { text: url, width: 220, height: 220 });
+                    modal.classList.remove('opacity-0', 'pointer-events-none');
+                    modal.querySelector('.modal-content').classList.remove('scale-95');
+                }
+            });
+
+            document.getElementById('close-modal').onclick = () => {
+                modal.classList.add('opacity-0', 'pointer-events-none');
+                modal.querySelector('.modal-content').classList.add('scale-95');
+            };
+            modal.onclick = (e) => { if(e.target === modal) document.getElementById('close-modal').click(); }
+        });
+    </script>
+</body>
+</html>
