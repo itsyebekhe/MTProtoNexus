@@ -1,0 +1,245 @@
+[
+    {
+        "server": "pl32.ir.meli-n13.info",
+        "port": 8443,
+        "secret": "104462821249bd7ac519130220c25d09",
+        "type": "MTProto",
+        "tg_url": "tg:\/\/proxy?server=pl32.ir.meli-n13.info&port=8443&secret=104462821249bd7ac519130220c25d09",
+        "status": "Online",
+        "latency": 93
+    },
+    {
+        "server": "pmjc.ir.meli-n13.info",
+        "port": 8443,
+        "secret": "104462821249bd7ac519130220c25d09",
+        "type": "MTProto",
+        "tg_url": "tg:\/\/proxy?server=pmjc.ir.meli-n13.info&port=8443&secret=104462821249bd7ac519130220c25d09",
+        "status": "Online",
+        "latency": 115
+    },
+    {
+        "server": "Rudmoain.co.uk.",
+        "port": 443,
+        "secret": "eef0eeb0bd9adc4fd4a93994ee3b2a216b63646e2e79656b74616e65742e636f6d",
+        "type": "MTProto TLS",
+        "tg_url": "tg:\/\/proxy?server=Rudmoain.co.uk.&port=443&secret=eef0eeb0bd9adc4fd4a93994ee3b2a216b63646e2e79656b74616e65742e636f6d",
+        "status": "Online",
+        "latency": 115
+    },
+    {
+        "server": "Hel-hi.co.uk.",
+        "port": 443,
+        "secret": "eef0eeb0bd9adc4fd4a93994ee3b2a216b63646e2e79656b74616e65742e636f6d",
+        "type": "MTProto TLS",
+        "tg_url": "tg:\/\/proxy?server=Hel-hi.co.uk.&port=443&secret=eef0eeb0bd9adc4fd4a93994ee3b2a216b63646e2e79656b74616e65742e636f6d",
+        "status": "Online",
+        "latency": 115
+    },
+    {
+        "server": "pm00c.ir.meli-n13.info",
+        "port": 8443,
+        "secret": "104462821249bd7ac519130220c25d09",
+        "type": "MTProto",
+        "tg_url": "tg:\/\/proxy?server=pm00c.ir.meli-n13.info&port=8443&secret=104462821249bd7ac519130220c25d09",
+        "status": "Online",
+        "latency": 181
+    },
+    {
+        "server": "ih8nb.ir.meli-n13.info",
+        "port": 8443,
+        "secret": "104462821249bd7ac519130220c25d09",
+        "type": "MTProto",
+        "tg_url": "tg:\/\/proxy?server=ih8nb.ir.meli-n13.info&port=8443&secret=104462821249bd7ac519130220c25d09",
+        "status": "Online",
+        "latency": 199
+    },
+    {
+        "server": "skein.chunkycorp.shop",
+        "port": 8443,
+        "secret": "ee6a0333c1db3f8eaba5c76731a44203b6617669746f2e7275",
+        "type": "MTProto TLS",
+        "tg_url": "tg:\/\/proxy?server=skein.chunkycorp.shop&port=8443&secret=ee6a0333c1db3f8eaba5c76731a44203b6617669746f2e7275",
+        "status": "Online",
+        "latency": 290
+    },
+    {
+        "server": "are-are-are.ir.paeez-amad.info.",
+        "port": 88,
+        "secret": "ee0000f00f0f775555fffffff5006e2e697374617469632e666172616b61762e636f6d",
+        "type": "MTProto TLS",
+        "tg_url": "tg:\/\/proxy?server=are-are-are.ir.paeez-amad.info.&port=88&secret=ee0000f00f0f775555fffffff5006e2e697374617469632e666172616b61762e636f6d",
+        "status": "Online",
+        "latency": 343
+    },
+    {
+        "server": "t.meow-network.com",
+        "port": 443,
+        "secret": "ee5622e11fff3e49bcc85280197a6106b5742e6d656f772d6e6574776f726b2e636f6d",
+        "type": "MTProto TLS",
+        "tg_url": "tg:\/\/proxy?server=t.meow-network.com&port=443&secret=ee5622e11fff3e49bcc85280197a6106b5742e6d656f772d6e6574776f726b2e636f6d",
+        "status": "Online",
+        "latency": 365
+    },
+    {
+        "server": "s02.neo-trading.org",
+        "port": 443,
+        "secret": "ee6ec9f7e082baf2397b450727ce78447e6f7a6f6e2e7275",
+        "type": "MTProto TLS",
+        "tg_url": "tg:\/\/proxy?server=s02.neo-trading.org&port=443&secret=ee6ec9f7e082baf2397b450727ce78447e6f7a6f6e2e7275",
+        "status": "Online",
+        "latency": 499
+    },
+    {
+        "server": "s01.neo-trading.org",
+        "port": 443,
+        "secret": "ee7391242569590e01416101927d38b565646e732d73686f702e7275",
+        "type": "MTProto TLS",
+        "tg_url": "tg:\/\/proxy?server=s01.neo-trading.org&port=443&secret=ee7391242569590e01416101927d38b565646e732d73686f702e7275",
+        "status": "Online",
+        "latency": 622
+    },
+    {
+        "server": "proxtstar.live",
+        "port": 443,
+        "secret": "eed21e15e0d7df3d811a11e2accff34eec617669746f2e7275",
+        "type": "MTProto TLS",
+        "tg_url": "tg:\/\/proxy?server=proxtstar.live&port=443&secret=eed21e15e0d7df3d811a11e2accff34eec617669746f2e7275",
+        "status": "Online",
+        "latency": 1328
+    },
+    {
+        "server": "sioms.co.uk",
+        "port": 25565,
+        "secret": "ee104462821249bd7ac519130220c25d0963646e2e79656b74616e65742e636f6d",
+        "type": "MTProto TLS",
+        "tg_url": "tg:\/\/proxy?server=sioms.co.uk&port=25565&secret=ee104462821249bd7ac519130220c25d0963646e2e79656b74616e65742e636f6d",
+        "status": "Online",
+        "latency": 1561
+    },
+    {
+        "server": "admin.valmira.co.uk",
+        "port": 25565,
+        "secret": "ee1603010200010001fc030386e24c3add6d656469612e737465616d706f77657265642e636f6d",
+        "type": "MTProto TLS",
+        "tg_url": "tg:\/\/proxy?server=admin.valmira.co.uk&port=25565&secret=ee1603010200010001fc030386e24c3add6d656469612e737465616d706f77657265642e636f6d",
+        "status": "Online",
+        "latency": 1856
+    },
+    {
+        "server": "75pib.life.198-44.ir.",
+        "port": 8443,
+        "secret": "ee6321048187495dfac59a030220c25d8e626973636f7474692e79656b74616e65742e636f6d",
+        "type": "MTProto TLS",
+        "tg_url": "tg:\/\/proxy?server=75pib.life.198-44.ir.&port=8443&secret=ee6321048187495dfac59a030220c25d8e626973636f7474692e79656b74616e65742e636f6d",
+        "status": "Online",
+        "latency": 1978
+    },
+    {
+        "server": "new2.lambforkebeb.co.uk",
+        "port": 2096,
+        "secret": "79e344818749bd7ac519130220c25d09",
+        "type": "MTProto",
+        "tg_url": "tg:\/\/proxy?server=new2.lambforkebeb.co.uk&port=2096&secret=79e344818749bd7ac519130220c25d09",
+        "status": "Online",
+        "latency": 2157
+    },
+    {
+        "server": "rain.lavazemi2.co.uk",
+        "port": 2053,
+        "secret": "79e344818749bd7ac519130220c25d09",
+        "type": "MTProto",
+        "tg_url": "tg:\/\/proxy?server=rain.lavazemi2.co.uk&port=2053&secret=79e344818749bd7ac519130220c25d09",
+        "status": "Online",
+        "latency": 2173
+    },
+    {
+        "server": "kostyanchekloh.lol",
+        "port": 443,
+        "secret": "ee3f72634c46d320aaa30d8bb2682e9b497975672d6c696e6b2e7275",
+        "type": "MTProto TLS",
+        "tg_url": "tg:\/\/proxy?server=kostyanchekloh.lol&port=443&secret=ee3f72634c46d320aaa30d8bb2682e9b497975672d6c696e6b2e7275",
+        "status": "Offline",
+        "latency": null
+    },
+    {
+        "server": "x.shmelproxy.top",
+        "port": 443,
+        "secret": "eefc2612ff65a557fddf1d1b334395ef237975672d6c696e6b2e7275",
+        "type": "MTProto TLS",
+        "tg_url": "tg:\/\/proxy?server=x.shmelproxy.top&port=443&secret=eefc2612ff65a557fddf1d1b334395ef237975672d6c696e6b2e7275",
+        "status": "Offline",
+        "latency": null
+    },
+    {
+        "server": "ad1.arixo.shop",
+        "port": 443,
+        "secret": "eee09f46368021f91b92ad3dea14c7ac896164312e617269786f2e73686f70",
+        "type": "MTProto TLS",
+        "tg_url": "tg:\/\/proxy?server=ad1.arixo.shop&port=443&secret=eee09f46368021f91b92ad3dea14c7ac896164312e617269786f2e73686f70",
+        "status": "Offline",
+        "latency": null
+    },
+    {
+        "server": "nyakawai.shop",
+        "port": 443,
+        "secret": "eefddb26d5047ce1787ece232a57832391617669746f2e7275",
+        "type": "MTProto TLS",
+        "tg_url": "tg:\/\/proxy?server=nyakawai.shop&port=443&secret=eefddb26d5047ce1787ece232a57832391617669746f2e7275",
+        "status": "Offline",
+        "latency": null
+    },
+    {
+        "server": "world-mordak.maraton-co.info.",
+        "port": 443,
+        "secret": "ee1603010200010001fc030386e24c3add6d656469612e737465616d706f77657265642e636f6d",
+        "type": "MTProto TLS",
+        "tg_url": "tg:\/\/proxy?server=world-mordak.maraton-co.info.&port=443&secret=ee1603010200010001fc030386e24c3add6d656469612e737465616d706f77657265642e636f6d",
+        "status": "Offline",
+        "latency": null
+    },
+    {
+        "server": "help.joumalanet.co.uk",
+        "port": 443,
+        "secret": "eef0eeb0bd9adc4fd4a93994ee3b2a216b7765622e62616c652e6169",
+        "type": "MTProto TLS",
+        "tg_url": "tg:\/\/proxy?server=help.joumalanet.co.uk&port=443&secret=eef0eeb0bd9adc4fd4a93994ee3b2a216b7765622e62616c652e6169",
+        "status": "Offline",
+        "latency": null
+    },
+    {
+        "server": "topproxt.asia",
+        "port": 443,
+        "secret": "eebbb00c5d6d8a742b1a762499eb7d4912617669746f2e7275",
+        "type": "MTProto TLS",
+        "tg_url": "tg:\/\/proxy?server=topproxt.asia&port=443&secret=eebbb00c5d6d8a742b1a762499eb7d4912617669746f2e7275",
+        "status": "Offline",
+        "latency": null
+    },
+    {
+        "server": "data.utkanos.life",
+        "port": 2443,
+        "secret": "eec3fcb57fc846f97afff554fa8b05b473646174612e75746b616e6f732e6c696665",
+        "type": "MTProto TLS",
+        "tg_url": "tg:\/\/proxy?server=data.utkanos.life&port=2443&secret=eec3fcb57fc846f97afff554fa8b05b473646174612e75746b616e6f732e6c696665",
+        "status": "Offline",
+        "latency": null
+    },
+    {
+        "server": "api2.medhata.org",
+        "port": 2443,
+        "secret": "ee9d072ce3c5b43f6b422bb1e7fe983cc4617069322e6d6564686174612e6f7267",
+        "type": "MTProto TLS",
+        "tg_url": "tg:\/\/proxy?server=api2.medhata.org&port=2443&secret=ee9d072ce3c5b43f6b422bb1e7fe983cc4617069322e6d6564686174612e6f7267",
+        "status": "Offline",
+        "latency": null
+    },
+    {
+        "server": "1b2aca9d-6852-45a7-bd7b-771a70fde2b7.fast-cdn.cc",
+        "port": 443,
+        "secret": "ee5a9252c2c44ec88a5ad64b048d4585f7666173742d63646e2e6363",
+        "type": "MTProto TLS",
+        "tg_url": "tg:\/\/proxy?server=1b2aca9d-6852-45a7-bd7b-771a70fde2b7.fast-cdn.cc&port=443&secret=ee5a9252c2c44ec88a5ad64b048d4585f7666173742d63646e2e6363",
+        "status": "Offline",
+        "latency": null
+    }
+]
