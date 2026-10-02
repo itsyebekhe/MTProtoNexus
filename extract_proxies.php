@@ -1,324 +1,427 @@
-<?php
-declare(strict_types=1);
-
-/**
- * Telegram Proxy Scanner - High Performance Optimized
- */
-
-const CONFIG = [
-    'input_file'      => 'usernames.json',
-    'output_json'     => 'extracted_proxies.json',
-    'output_html'     => 'index.html',
-    'cache_duration'  => 3600,
-    'socket_timeout'  => 2.5,
-    'curl_timeout'    => 8,
-    'curl_max_concur' => 30,
-    'socket_batch'    => 64,
-];
-
-class ProxyScanner {
-    private const USER_AGENTS = [
-        'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
-        'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
-    ];
-
-    public function run(): array {
-        echo "Starting Scan...\n";
-        $usernames = $this->loadUsernames();
-        if (empty($usernames)) {
-            echo "No usernames found in input file.\n";
-            return [];
-        }
-
-        // Fetch & extract on-the-fly to minimize peak memory
-        $proxies = $this->fetchAndExtractProxies($usernames);
-        $totalFound = count($proxies);
-        echo "Found {$totalFound} unique valid proxies. Checking connectivity...\n";
-
-        if ($totalFound === 0) {
-            return [];
-        }
-
-        $checkedProxies = $this->checkConnectivity($proxies);
-
-        // Sort: Online first, then by lowest latency
-        usort($checkedProxies, static function (array $a, array $b): int {
-            $aOnline = ($a['status'] === 'Online');
-            $bOnline = ($b['status'] === 'Online');
-
-            if ($aOnline !== $bOnline) {
-                return $bOnline <=> $aOnline;
-            }
-
-            return ($a['latency'] ?? 9999) <=> ($b['latency'] ?? 9999);
-        });
-
-        file_put_contents(CONFIG['output_json'], json_encode($checkedProxies, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
-        return $checkedProxies;
-    }
-
-    private function loadUsernames(): array {
-        if (!file_exists(CONFIG['input_file'])) {
-            return [];
-        }
-        $data = json_decode((string)file_get_contents(CONFIG['input_file']), true);
-        return is_array($data) ? array_filter(array_map('trim', $data)) : [];
-    }
-
-    /**
-     * Uses a rolling cURL multi queue and extracts proxies on-the-fly
-     */
-    private function fetchAndExtractProxies(array $usernames): array {
-        $mh = curl_multi_init();
-        $handles = [];
-        $uniqueProxies = [];
-        $maxConcurrent = (int)CONFIG['curl_max_concur'];
-
-        // Worker to push new handles
-        $addHandle = function (string $user) use ($mh, &$handles): void {
-            $ch = curl_init('https://telegram.me/s/' . rawurlencode($user));
-            curl_setopt_array($ch, [
-                CURLOPT_RETURNTRANSFER => true,
-                CURLOPT_FOLLOWLOCATION => true,
-                CURLOPT_TIMEOUT        => CONFIG['curl_timeout'],
-                CURLOPT_USERAGENT      => self::USER_AGENTS[array_rand(self::USER_AGENTS)],
-                CURLOPT_SSL_VERIFYPEER => false,
-                CURLOPT_ENCODING       => '', // enables gzip/deflate automatically
-                CURLOPT_NOSIGNAL       => 1,
-            ]);
-            curl_multi_add_handle($mh, $ch);
-            $handles[(int)$ch] = $ch;
-        };
-
-        // Seed initial pool
-        while (!empty($usernames) && count($handles) < $maxConcurrent) {
-            $addHandle(array_shift($usernames));
-        }
-
-        do {
-            $status = curl_multi_exec($mh, $active);
-
-            // Read completed transfers
-            while ($info = curl_multi_info_read($mh)) {
-                $ch = $info['handle'];
-                $id = (int)$ch;
-
-                if ($info['result'] === CURLE_OK) {
-                    $html = (string)curl_multi_getcontent($ch);
-                    $this->extractProxiesFromHtml($html, $uniqueProxies);
-                    unset($html); // Prompt GC
-                }
-
-                curl_multi_remove_handle($mh, $ch);
-                curl_close($ch);
-                unset($handles[$id]);
-
-                // Enqueue next
-                if (!empty($usernames)) {
-                    $addHandle(array_shift($usernames));
+<!DOCTYPE html>
+<html lang="fa" dir="rtl" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>پایگاه پروکسی MTProto — پایش لحظه‌ای و اتصال پرسرعت</title>
+    
+    <!-- فونت وزیرمتن و جت‌برینز مونو -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Vazirmatn:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Vazirmatn', 'system-ui', 'sans-serif'],
+                        mono: ['"JetBrains Mono"', 'monospace'],
+                    },
+                    colors: {
+                        brand: {
+                            50: '#ecfeff',
+                            400: '#22d3ee',
+                            500: '#06b6d4',
+                            600: '#0891b2',
+                            950: '#082f49'
+                        },
+                        surface: {
+                            base: '#090d16',
+                            card: 'rgba(15, 23, 42, 0.7)',
+                            elevated: 'rgba(30, 41, 59, 0.75)'
+                        }
+                    }
                 }
             }
+        }
+    </script>
+    <style>
+        .noise-bg {
+            background-image: radial-gradient(rgba(255, 255, 255, 0.04) 1px, transparent 0);
+            background-size: 24px 24px;
+        }
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 6px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: #334155;
+            border-radius: 9999px;
+        }
+    </style>
+</head>
+<body class="bg-surface-base text-slate-100 min-h-screen font-sans antialiased selection:bg-brand-500 selection:text-black noise-bg relative">
 
-            if ($active && $status === CURLM_OK) {
-                curl_multi_select($mh, 0.1);
+    <!-- افکت‌های نوری پس‌زمینه -->
+    <div class="fixed inset-0 pointer-events-none overflow-hidden z-0">
+        <div class="absolute -top-40 right-1/2 translate-x-1/2 w-[45rem] h-[30rem] bg-gradient-to-tr from-brand-600/15 via-indigo-600/15 to-transparent blur-[140px] rounded-full"></div>
+        <div class="absolute bottom-[-10%] left-[-5%] w-[35rem] h-[35rem] bg-cyan-900/10 blur-[130px] rounded-full"></div>
+    </div>
+
+    <!-- اعلان وضعیت (Toast Notification) -->
+    <div id="toast" class="fixed bottom-6 left-6 z-50 flex items-center gap-3 px-5 py-3 rounded-2xl bg-slate-900/95 border border-slate-700/70 shadow-2xl backdrop-blur-xl transition-all duration-300 transform translate-y-20 opacity-0 pointer-events-none">
+        <span id="toast-icon" class="text-emerald-400">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>
+        </span>
+        <span id="toast-msg" class="text-xs font-semibold text-slate-200">عملیات با موفقیت انجام شد</span>
+    </div>
+
+    <main class="relative z-10 container mx-auto px-4 sm:px-6 lg:px-8 py-8 md:py-12 max-w-7xl">
+
+        <!-- سربرگ اصلی -->
+        <header class="flex flex-col lg:flex-row lg:items-center justify-between gap-6 pb-8 border-b border-slate-800/80 mb-8">
+            <div class="space-y-3">
+                <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-brand-500/10 border border-brand-500/20 text-brand-400 text-xs font-semibold">
+                    <span class="relative flex h-2 w-2">
+                        <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-brand-400 opacity-75"></span>
+                        <span class="relative inline-flex rounded-full h-2 w-2 bg-brand-400"></span>
+                    </span>
+                    مانیتورینگ زنده‌ی شبکه پروکسی
+                </div>
+                <h1 class="text-3xl md:text-5xl font-black tracking-tight text-white flex items-center gap-2">
+                    نکسوس <span class="text-brand-400">MTProto</span>
+                </h1>
+                <p class="text-slate-400 text-sm max-w-lg leading-relaxed">
+                    پروکسی‌های تلگرام تست شده به‌صورت خودکار با سنجش تاخیر میلی‌ثانیه‌ای و امکان اتصال مستقیم بدون نیاز به فیلترشکن.
+                </p>
+            </div>
+
+            <!-- باکس آمار و بازرسی مجدد -->
+            <div class="flex flex-wrap items-center gap-3">
+                <div class="flex items-center bg-slate-900/80 border border-slate-800 p-2 rounded-2xl backdrop-blur-md">
+                    <div class="px-4 py-1.5 border-l border-slate-800 text-right">
+                        <div class="text-[11px] text-slate-400 font-bold">آنلاین</div>
+                        <div class="text-xl font-bold font-mono text-emerald-400"><?= $onlineCount ?></div>
+                    </div>
+                    <div class="px-4 py-1.5 border-l border-slate-800 text-right">
+                        <div class="text-[11px] text-slate-400 font-bold">کل سرورها</div>
+                        <div class="text-xl font-bold font-mono text-slate-300"><?= $totalCount ?></div>
+                    </div>
+                    <div class="px-4 py-1.5 text-right">
+                        <div class="text-[11px] text-slate-400 font-bold">پایداری</div>
+                        <div class="text-xl font-bold font-mono text-brand-400">
+                            <?= $totalCount > 0 ? round(($onlineCount / $totalCount) * 100) : 0 ?>%
+                        </div>
+                    </div>
+                </div>
+
+                <a href="?scan=1" title="بررسی مجدد سرورها" 
+                   class="flex items-center gap-2 px-5 py-3.5 bg-brand-500 hover:bg-brand-400 text-slate-950 font-bold rounded-2xl transition duration-200 shadow-lg shadow-brand-500/20 active:scale-95 text-xs">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+                    بررسی مجدد
+                </a>
+            </div>
+        </header>
+
+        <!-- نوار فیلتر و جستجو -->
+        <section class="bg-surface-card border border-slate-800/80 rounded-2xl p-4 backdrop-blur-xl mb-8 space-y-4">
+            <div class="flex flex-col md:flex-row gap-3">
+                <!-- سرچ‌بار -->
+                <div class="relative flex-grow">
+                    <svg class="absolute right-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+                    <input type="text" id="proxy-search" placeholder="جستجو بر اساس آی‌پی، پورت، یا نوع رمزنگاری..." 
+                           class="w-full pr-10 pl-4 py-2.5 bg-slate-900/90 border border-slate-700/60 rounded-xl text-xs focus:outline-none focus:border-brand-500 text-slate-200 placeholder-slate-500 transition">
+                </div>
+
+                <!-- دکمه‌های فیلتر سریع -->
+                <div class="flex items-center gap-1.5 p-1 bg-slate-900/90 border border-slate-700/60 rounded-xl text-xs font-semibold">
+                    <button data-filter="all" class="filter-btn active-filter px-3.5 py-1.5 rounded-lg text-slate-300 hover:text-white transition">همه</button>
+                    <button data-filter="online" class="filter-btn px-3.5 py-1.5 rounded-lg text-slate-400 hover:text-white transition">فقط آنلاین‌ها</button>
+                    <button data-filter="tls" class="filter-btn px-3.5 py-1.5 rounded-lg text-slate-400 hover:text-white transition">دارای TLS</button>
+                </div>
+
+                <!-- کلیدهای برون‌بری (Export) -->
+                <div class="flex items-center gap-2">
+                    <button id="export-clipboard-btn" class="flex items-center gap-2 px-4 py-2.5 bg-slate-800 hover:bg-slate-700 border border-slate-700/80 rounded-xl text-xs font-bold text-slate-300 transition active:scale-95">
+                        <svg class="w-4 h-4 text-brand-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7v8a2 2 0 002 2h6M8 7V5a2 2 0 012-2h4.586a1 1 0 01.707.293l4.414 4.414a1 1 0 01.293.707V15a2 2 0 01-2 2h-2M8 7H6a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2v-2"/></svg>
+                        کپی همه لینک‌ها
+                    </button>
+                    <button id="download-json-btn" class="p-2.5 bg-slate-800 hover:bg-slate-700 border border-slate-700/80 rounded-xl text-slate-300 transition active:scale-95" title="خروجی JSON">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+                    </button>
+                </div>
+            </div>
+
+            <!-- اطلاعات جزئی وضعیت -->
+            <div class="flex flex-wrap items-center justify-between text-xs text-slate-400 pt-2 border-t border-slate-800/60 font-mono">
+                <div>تعداد نتایج: <span id="visible-count" class="text-white font-bold font-mono"><?= count($proxies) ?></span> سرور</div>
+                <div class="font-sans">آخرین بررسی: <span id="time-ago" data-timestamp="<?= $scanTimestamp ?>" class="text-slate-300 font-semibold">چند لحظه پیش</span></div>
+            </div>
+        </section>
+
+        <!-- شبکه کارت‌های پروکسی -->
+        <div id="proxy-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 pb-24">
+            <?php foreach ($proxies as $proxy): 
+                $isOnline = ($proxy['status'] === 'Online');
+                $latency = $proxy['latency'] ?? null;
+
+                // برچسب تاخیر
+                $latencyClass = match(true) {
+                    !$isOnline       => 'bg-rose-500/10 text-rose-400 border-rose-500/20',
+                    $latency < 150   => 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20',
+                    $latency < 350   => 'bg-amber-500/10 text-amber-400 border-amber-500/20',
+                    default          => 'bg-orange-500/10 text-orange-400 border-orange-500/20'
+                };
+
+                // استایل نوع سکرت
+                $typeStyle = match($proxy['type']) {
+                    'MTProto TLS'    => 'text-sky-400 border-sky-400/25 bg-sky-400/10',
+                    'MTProto Secure' => 'text-indigo-400 border-indigo-400/25 bg-indigo-400/10',
+                    default          => 'text-slate-400 border-slate-700 bg-slate-800/50'
+                };
+            ?>
+            <article class="proxy-card group flex flex-col justify-between p-5 rounded-2xl bg-surface-card border border-slate-800/80 hover:border-slate-700 transition-all duration-200 hover:shadow-xl hover:shadow-cyan-950/20 relative overflow-hidden backdrop-blur-md <?= $isOnline ? 'is-online' : 'is-offline opacity-60 hover:opacity-100' ?>"
+                     data-server="<?= htmlspecialchars($proxy['server']) ?>"
+                     data-port="<?= $proxy['port'] ?>"
+                     data-type="<?= strtolower($proxy['type']) ?>"
+                     data-status="<?= $isOnline ? 'online' : 'offline' ?>"
+                     data-latency="<?= $latency ?? 9999 ?>"
+                     data-url="<?= htmlspecialchars($proxy['tg_url']) ?>">
+
+                <div>
+                    <!-- سربرگ کارت -->
+                    <div class="flex items-center justify-between mb-4 gap-2">
+                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-md text-[11px] font-mono font-bold uppercase tracking-wider border <?= $typeStyle ?>">
+                            <?= htmlspecialchars($proxy['type']) ?>
+                        </span>
+                        
+                        <div dir="ltr" class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-xs font-mono font-bold <?= $latencyClass ?>">
+                            <span class="w-1.5 h-1.5 rounded-full <?= $isOnline ? 'bg-emerald-400 animate-pulse' : 'bg-rose-400' ?>"></span>
+                            <?= $isOnline ? "{$latency} ms" : "قطع" ?>
+                        </div>
+                    </div>
+
+                    <!-- جزییات آدرس سرور -->
+                    <div class="space-y-1 mb-5">
+                        <div class="text-[11px] text-slate-500 font-bold">آدرس سرور میزبان</div>
+                        <div dir="ltr" class="text-base font-bold font-mono text-slate-100 truncate text-right select-all" title="<?= htmlspecialchars($proxy['server']) ?>">
+                            <?= htmlspecialchars($proxy['server']) ?>
+                        </div>
+                        <div dir="ltr" class="text-xs font-mono text-slate-400 flex items-center justify-end gap-1.5 pt-0.5">
+                            <span class="text-slate-300 font-semibold"><?= $proxy['port'] ?></span>
+                            <span class="text-slate-500">:پورت</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- دکمه‌های اقدام -->
+                <div class="pt-4 border-t border-slate-800/80 flex items-center gap-2">
+                    <a href="<?= htmlspecialchars($proxy['tg_url']) ?>" 
+                       class="flex-1 flex items-center justify-center gap-1.5 py-2.5 px-3 rounded-xl bg-brand-500/10 hover:bg-brand-500 text-brand-400 hover:text-slate-950 font-bold text-xs transition border border-brand-500/25 active:scale-95">
+                        <span>اتصال به تلگرام</span>
+                        <svg class="w-3.5 h-3.5 rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M14 5l7 7m0 0l-7 7m7-7H3"/></svg>
+                    </a>
+                    
+                    <button class="copy-btn p-2.5 rounded-xl bg-slate-800/80 hover:bg-slate-700 text-slate-300 border border-slate-700/60 transition active:scale-90" title="کپی لینک پروکسی">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
+                    </button>
+
+                    <button class="qr-btn p-2.5 rounded-xl bg-slate-800/80 hover:bg-slate-700 text-slate-300 border border-slate-700/60 transition active:scale-90" title="نمایش بارکد QR">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v1m6 11h2m-6 0h-2v4h2v-4zM6 6h6v6H6V6zm12 0h6v6h-6V6zm-6 12h6v6h-6v-6z"/></svg>
+                    </button>
+                </div>
+            </article>
+            <?php endforeach; ?>
+        </div>
+
+    </main>
+
+    <!-- مودال بارکد QR -->
+    <div id="qr-modal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md opacity-0 pointer-events-none transition-all duration-200">
+        <div class="modal-box bg-slate-900 border border-slate-700/80 w-full max-w-sm rounded-3xl p-6 text-center shadow-2xl scale-95 transition-transform duration-200 space-y-5">
+            <div class="flex items-center justify-between pb-2 border-b border-slate-800">
+                <h3 class="text-xs font-bold text-slate-300">اسکن و اتصال سریع</h3>
+                <button id="modal-close-x" class="text-slate-400 hover:text-white p-1">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                </button>
+            </div>
+            
+            <div class="bg-white p-3.5 rounded-2xl mx-auto w-fit shadow-inner">
+                <div id="qrcode"></div>
+            </div>
+
+            <p class="text-xs text-slate-400 leading-relaxed">دوربین موبایل یا اسکنر تلگرام خود را مقابل این بارکد بگیرید تا پروکسی بلافاصله تنظیم شود.</p>
+            
+            <button id="close-modal" class="w-full py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold transition">
+                بستن پنجره
+            </button>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const grid = document.getElementById('proxy-grid');
+            const searchInput = document.getElementById('proxy-search');
+            const cards = Array.from(document.querySelectorAll('.proxy-card'));
+            const visibleCountEl = document.getElementById('visible-count');
+            const filterButtons = document.querySelectorAll('.filter-btn');
+
+            let activeFilter = 'all';
+
+            // سیستم پیام موقت (Toast)
+            const toast = document.getElementById('toast');
+            const toastMsg = document.getElementById('toast-msg');
+            let toastTimer = null;
+            function showToast(message) {
+                toastMsg.textContent = message;
+                toast.classList.remove('opacity-0', 'pointer-events-none', 'translate-y-20');
+                clearTimeout(toastTimer);
+                toastTimer = setTimeout(() => {
+                    toast.classList.add('opacity-0', 'pointer-events-none', 'translate-y-20');
+                }, 2200);
             }
-        } while ($active || !empty($handles));
 
-        curl_multi_close($mh);
-        return array_values($uniqueProxies);
-    }
+            // فیلتر آنی سرورها
+            function filterCards() {
+                const term = searchInput.value.trim().toLowerCase();
+                let count = 0;
 
-    /**
-     * Fast proxy extraction: regex only searches for proxy query strings
-     */
-    private function extractProxiesFromHtml(string &$html, array &$found): void {
-        // Fast match on tg:// or t.me proxy links
-        if (!preg_match_all('/(?:tg:\/\/|t\.me\/)proxy\?([^"\'\s<>]+)/i', $html, $matches)) {
-            return;
-        }
+                cards.forEach(card => {
+                    const matchesSearch = card.dataset.server.toLowerCase().includes(term) || 
+                                          card.dataset.port.includes(term) ||
+                                          card.dataset.type.includes(term);
 
-        foreach ($matches[1] as $query) {
-            // Decode entity-encoded ampersands (&amp; -> &)
-            $decodedQuery = str_replace('&amp;', '&', $query);
-            parse_str($decodedQuery, $params);
-
-            $server = isset($params['server']) ? trim((string)$params['server']) : '';
-            $port   = filter_var($params['port'] ?? null, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1, 'max_range' => 65535]]);
-            $secret = isset($params['secret']) ? $this->cleanSecret((string)$params['secret']) : null;
-
-            if ($server === '' || $port === false || $secret === null) {
-                continue;
-            }
-
-            $key = "{$server}:{$port}";
-            if (isset($found[$key])) {
-                continue;
-            }
-
-            $type = match (true) {
-                str_starts_with($secret, 'dd') => 'MTProto Secure',
-                str_starts_with($secret, 'ee') => 'MTProto TLS',
-                default                        => 'MTProto'
-            };
-
-            $found[$key] = [
-                'server' => $server,
-                'port'   => $port,
-                'secret' => $secret,
-                'type'   => $type,
-                'tg_url' => "tg://proxy?server={$server}&port={$port}&secret={$secret}",
-            ];
-        }
-    }
-
-    private function cleanSecret(string $secret): ?string {
-        $secret = strtolower(trim($secret));
-
-        if (!ctype_xdigit($secret)) {
-            return null;
-        }
-
-        $len = strlen($secret);
-
-        if (str_starts_with($secret, 'dd')) {
-            return ($len === 32 || $len === 34) ? $secret : null;
-        }
-
-        if (str_starts_with($secret, 'ee')) {
-            return ($len >= 34) ? $secret : null;
-        }
-
-        return ($len === 32) ? $secret : null;
-    }
-
-    /**
-     * High-speed non-blocking asynchronous TCP handshake checker
-     */
-    private function checkConnectivity(array $proxies): array {
-        $results = [];
-        $batchSize = (int)CONFIG['socket_batch'];
-        $timeout = (float)CONFIG['socket_timeout'];
-        $chunks = array_chunk($proxies, $batchSize);
-
-        foreach ($chunks as $chunk) {
-            $sockets = [];
-            $map = [];
-
-            foreach ($chunk as $idx => $proxy) {
-                // Non-blocking connection initiation
-                $address = "tcp://{$proxy['server']}:{$proxy['port']}";
-                $socket = @stream_socket_client(
-                    $address,
-                    $errno,
-                    $errstr,
-                    0,
-                    STREAM_CLIENT_ASYNC_CONNECT | STREAM_CLIENT_CONNECT
-                );
-
-                if ($socket !== false) {
-                    stream_set_blocking($socket, false);
-                    $sockets[$idx] = $socket;
-                    $map[$idx] = [
-                        'proxy' => $proxy,
-                        'start' => microtime(true),
-                    ];
-                } else {
-                    $proxy['status'] = 'Offline';
-                    $proxy['latency'] = null;
-                    $results[] = $proxy;
-                }
-            }
-
-            $deadline = microtime(true) + $timeout;
-
-            while (!empty($sockets)) {
-                $remaining = $deadline - microtime(true);
-                if ($remaining <= 0) {
-                    break;
-                }
-
-                $read = null;
-                $write = $sockets;
-                $except = null;
-
-                $sec = (int)$remaining;
-                $usec = (int)(($remaining - $sec) * 1_000_000);
-
-                $ready = @stream_select($read, $write, $except, $sec, $usec);
-                if ($ready === false || $ready === 0) {
-                    break;
-                }
-
-                foreach ($write as $id => $sock) {
-                    $info = $map[$id];
-                    $p = $info['proxy'];
-
-                    // A writable socket is either connected or rejected.
-                    // stream_socket_get_name confirms if the handshake succeeded without blocking.
-                    if (@stream_socket_get_name($sock, true) !== false) {
-                        $p['status']  = 'Online';
-                        $p['latency'] = (int)round((microtime(true) - $info['start']) * 1000);
-                    } else {
-                        $p['status']  = 'Offline';
-                        $p['latency'] = null;
+                    let matchesCategory = true;
+                    if (activeFilter === 'online') {
+                        matchesCategory = card.dataset.status === 'online';
+                    } else if (activeFilter === 'tls') {
+                        matchesCategory = card.dataset.type.includes('tls');
                     }
 
-                    $results[] = $p;
-                    fclose($sock);
-                    unset($sockets[$id], $map[$id]);
+                    if (matchesSearch && matchesCategory) {
+                        card.style.display = '';
+                        count++;
+                    } else {
+                        card.style.display = 'none';
+                    }
+                });
+
+                visibleCountEl.textContent = count;
+            }
+
+            searchInput.addEventListener('input', filterCards);
+
+            // تغییر فیلترهای بالا
+            filterButtons.forEach(btn => {
+                btn.addEventListener('click', () => {
+                    filterButtons.forEach(b => {
+                        b.classList.remove('active-filter', 'bg-brand-500/20', 'text-brand-400');
+                        b.classList.add('text-slate-400');
+                    });
+                    btn.classList.add('active-filter', 'bg-brand-500/20', 'text-brand-400');
+                    btn.classList.remove('text-slate-400');
+                    activeFilter = btn.dataset.filter;
+                    filterCards();
+                });
+            });
+
+            document.querySelector('.filter-btn[data-filter="all"]').classList.add('bg-brand-500/20', 'text-brand-400');
+
+            // کپی لینک تک کارت
+            grid.addEventListener('click', (e) => {
+                const copyBtn = e.target.closest('.copy-btn');
+                if (!copyBtn) return;
+                
+                const card = copyBtn.closest('.proxy-card');
+                const url = card.dataset.url;
+
+                navigator.clipboard.writeText(url).then(() => {
+                    showToast('لینک پروکسی در کلیپ‌بورد کپی شد');
+                    const original = copyBtn.innerHTML;
+                    copyBtn.innerHTML = `<svg class="w-4 h-4 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>`;
+                    setTimeout(() => copyBtn.innerHTML = original, 1500);
+                });
+            });
+
+            // ساخت و نمایش QR کد
+            const modal = document.getElementById('qr-modal');
+            const qrWrapper = document.getElementById('qrcode');
+
+            grid.addEventListener('click', (e) => {
+                const qrBtn = e.target.closest('.qr-btn');
+                if (!qrBtn) return;
+
+                const card = qrBtn.closest('.proxy-card');
+                const url = card.dataset.url;
+
+                qrWrapper.innerHTML = '';
+                new QRCode(qrWrapper, {
+                    text: url,
+                    width: 180,
+                    height: 180,
+                    colorDark: '#090d16',
+                    colorLight: '#ffffff',
+                    correctLevel: QRCode.CorrectLevel.M
+                });
+
+                modal.classList.remove('opacity-0', 'pointer-events-none');
+                modal.querySelector('.modal-box').classList.remove('scale-95');
+            });
+
+            const closeModal = () => {
+                modal.classList.add('opacity-0', 'pointer-events-none');
+                modal.querySelector('.modal-box').classList.add('scale-95');
+            };
+
+            document.getElementById('close-modal').addEventListener('click', closeModal);
+            document.getElementById('modal-close-x').addEventListener('click', closeModal);
+            modal.addEventListener('click', (e) => { if (e.target === modal) closeModal(); });
+
+            // کپی همگانی لینک‌ها
+            document.getElementById('export-clipboard-btn').addEventListener('click', () => {
+                const onlineCards = cards.filter(c => c.dataset.status === 'online');
+                if (onlineCards.length === 0) {
+                    showToast('پروکسی آنلاینی برای استخراج وجود ندارد');
+                    return;
                 }
+                const text = onlineCards.map(c => c.dataset.url).join("\n");
+                navigator.clipboard.writeText(text).then(() => {
+                    showToast(`${onlineCards.length} پروکسی فعال کپی شد`);
+                });
+            });
+
+            // خروجی فایل JSON
+            document.getElementById('download-json-btn').addEventListener('click', () => {
+                const list = cards.map(c => ({
+                    server: c.dataset.server,
+                    port: parseInt(c.dataset.port),
+                    type: c.dataset.type,
+                    status: c.dataset.status,
+                    latency: c.dataset.latency !== '9999' ? parseInt(c.dataset.latency) : null,
+                    url: c.dataset.url
+                }));
+                const blob = new Blob([JSON.stringify(list, null, 2)], { type: 'application/json;charset=utf-8' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `proxies-${Date.now()}.json`;
+                a.click();
+                URL.revokeObjectURL(url);
+                showToast('فایل JSON با موفقیت دریافت شد');
+            });
+
+            // زمان نسبی فارسی
+            const timeEl = document.getElementById('time-ago');
+            const scanTimestamp = parseInt(timeEl.dataset.timestamp, 10) * 1000;
+
+            function updateTimeAgo() {
+                if (!scanTimestamp) {
+                    timeEl.textContent = 'نامشخص';
+                    return;
+                }
+                const diff = Math.floor((Date.now() - scanTimestamp) / 1000);
+                if (diff < 30) return timeEl.textContent = 'هم‌اکنون';
+                if (diff < 60) return timeEl.textContent = `${diff} ثانیه پیش`;
+                if (diff < 3600) return timeEl.textContent = `${Math.floor(diff / 60)} دقیقه پیش`;
+                if (diff < 86400) return timeEl.textContent = `${Math.floor(diff / 3600)} ساعت پیش`;
+                timeEl.textContent = `${Math.floor(diff / 86400)} روز پیش`;
             }
-
-            // Any remaining sockets timed out
-            foreach ($sockets as $id => $sock) {
-                $p = $map[$id]['proxy'];
-                $p['status'] = 'Offline';
-                $p['latency'] = null;
-                $results[] = $p;
-                fclose($sock);
-            }
-        }
-
-        return $results;
-    }
-}
-
-// --- Execution ---
-$isCli = (PHP_SAPI === 'cli');
-$lastScanTime = file_exists(CONFIG['output_json']) ? filemtime(CONFIG['output_json']) : 0;
-$cacheExpired = (time() - $lastScanTime) > CONFIG['cache_duration'];
-$forceScan = isset($_GET['scan']);
-
-$shouldScan = $isCli || !file_exists(CONFIG['output_json']) || $cacheExpired || $forceScan;
-
-if ($shouldScan) {
-    $scanner = new ProxyScanner();
-    $proxies = $scanner->run();
-    $lastScanTime = time();
-} else {
-    $proxies = json_decode((string)file_get_contents(CONFIG['output_json']), true) ?? [];
-}
-
-// Prepare View Data
-$onlineCount = 0;
-foreach ($proxies as $p) {
-    if ($p['status'] === 'Online') {
-        $onlineCount++;
-    }
-}
-$totalCount = count($proxies);
-$scanTimestamp = $lastScanTime;
-
-// Render
-if (file_exists('template.phtml')) {
-    ob_start();
-    require 'template.phtml';
-    $htmlContent = ob_get_clean();
-    file_put_contents(CONFIG['output_html'], $htmlContent);
-
-    if ($isCli) {
-        echo "Generated " . CONFIG['output_html'] . " with {$onlineCount}/{$totalCount} online proxies.\n";
-    } else {
-        echo $htmlContent;
-    }
-}
+            updateTimeAgo();
+            setInterval(updateTimeAgo, 30000);
+        });
+    </script>
+</body>
+</html>
