@@ -2,289 +2,342 @@
 declare(strict_types=1);
 
 /**
- * Telegram Proxy Scanner - v2025.1 (Fix: Invalid Secret)
+ * Telegram Proxy Scanner - High Performance Optimized Edition
  */
 
 const CONFIG = [
-    'input_file'      => 'usernames.json',
-    'output_json'     => 'extracted_proxies.json',
-    'output_html'     => 'index.html',
+    'input_file'      => __DIR__ . '/usernames.json',
+    'output_json'     => __DIR__ . '/extracted_proxies.json',
+    'output_html'     => __DIR__ . '/index.html',
     'cache_duration'  => 3600,
-    'socket_timeout'  => 2,
-    'batch_size'      => 50,
-    'socket_batch'    => 20
+    'socket_timeout'  => 2.0,   // seconds (float supported)
+    'http_concurrency'=> 25,    // Max parallel HTTP requests
+    'socket_batch'    => 64,    // Sockets to poll simultaneously
 ];
 
 class ProxyScanner {
-    private array $userAgents = [
-        'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36',
+    private const USER_AGENTS = [
+        'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+        'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.4 Safari/605.1.15',
     ];
 
     public function run(): array {
         echo "Starting Scan...\n";
         $usernames = $this->loadUsernames();
-        if (empty($usernames)) return [];
+        if (empty($usernames)) {
+            echo "No channels found.\n";
+            return [];
+        }
 
-        $rawHtml = $this->fetchChannels($usernames);
-        $proxies = $this->extractProxies($rawHtml);
+        $rawChannels = $this->fetchChannels($usernames);
+        $proxies = $this->extractProxies($rawChannels);
         
-        echo "Found " . count($proxies) . " raw proxies. Checking connectivity...\n";
+        echo "Found " . count($proxies) . " unique valid configurations. Testing connectivity...\n";
         $checkedProxies = $this->checkConnectivity($proxies);
         
-        // Smart Sort: Online > Latency
-        usort($checkedProxies, function ($a, $b) {
-            if ($a['status'] === 'Online' && $b['status'] !== 'Online') return -1;
-            if ($a['status'] !== 'Online' && $b['status'] === 'Online') return 1;
-            return ($a['latency'] ?? 9999) <=> ($b['latency'] ?? 9999);
+        // Smart Sort: Online status first, then ascending latency
+        usort($checkedProxies, static function (array $a, array $b): int {
+            $aOnline = ($a['status'] === 'Online');
+            $bOnline = ($b['status'] === 'Online');
+
+            if ($aOnline !== $bOnline) {
+                return $bOnline <=> $aOnline;
+            }
+            return ($a['latency'] ?? 99999) <=> ($b['latency'] ?? 99999);
         });
 
-        file_put_contents(CONFIG['output_json'], json_encode($checkedProxies, JSON_PRETTY_PRINT));
+        $this->atomicWrite(CONFIG['output_json'], json_encode($checkedProxies, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
         return $checkedProxies;
     }
 
     private function loadUsernames(): array {
-        if (!file_exists(CONFIG['input_file'])) return [];
+        if (!is_file(CONFIG['input_file'])) {
+            return [];
+        }
         $data = json_decode(file_get_contents(CONFIG['input_file']), true);
-        return is_array($data) ? $data : [];
+        return is_array($data) ? array_values(array_filter(array_map('trim', $data))) : [];
     }
 
+    /**
+     * Non-blocking rolling curl multi-exec
+     */
     private function fetchChannels(array $usernames): array {
         $mh = curl_multi_init();
-        $handles = [];
         $results = [];
+        $running = 0;
+        $maxConcurrent = (int)CONFIG['http_concurrency'];
 
-        foreach ($usernames as $user) {
-            $url = 'https://telegram.me/s/' . trim($user);
-            $ch = curl_init($url);
+        $queue = array_unique($usernames);
+        $activeHandles = [];
+
+        $enqueue = function() use ($mh, &$queue, &$activeHandles) {
+            $user = array_pop($queue);
+            if ($user === null) return false;
+
+            $ch = curl_init('https://telegram.me/s/' . rawurlencode($user));
             curl_setopt_array($ch, [
                 CURLOPT_RETURNTRANSFER => true,
                 CURLOPT_FOLLOWLOCATION => true,
-                CURLOPT_TIMEOUT        => 10,
-                CURLOPT_USERAGENT      => $this->userAgents[array_rand($this->userAgents)],
+                CURLOPT_MAXREDIRS      => 3,
+                CURLOPT_TIMEOUT        => 8,
+                CURLOPT_USERAGENT      => self::USER_AGENTS[array_rand(self::USER_AGENTS)],
                 CURLOPT_SSL_VERIFYPEER => false,
-                CURLOPT_ENCODING       => '' // Handle gzip
+                CURLOPT_SSL_VERIFYHOST => false,
+                CURLOPT_ENCODING       => '', // auto gzip/deflate
             ]);
             curl_multi_add_handle($mh, $ch);
-            $handles[$user] = $ch;
+            $activeHandles[(int)$ch] = $ch;
+            return true;
+        };
+
+        // Seed initial pool
+        for ($i = 0; $i < $maxConcurrent && !empty($queue); $i++) {
+            $enqueue();
         }
 
-        $active = null;
         do {
-            $status = curl_multi_exec($mh, $active);
-            if ($active) curl_multi_select($mh);
-        } while ($active && $status == CURLM_OK);
+            $status = curl_multi_exec($mh, $running);
 
-        foreach ($handles as $user => $ch) {
-            $results[] = curl_multi_getcontent($ch);
-            curl_multi_remove_handle($mh, $ch);
-            curl_close($ch);
-        }
+            // Read completed transfers
+            while ($info = curl_multi_info_read($mh)) {
+                $ch = $info['handle'];
+                $id = (int)$ch;
+
+                if ($info['result'] === CURLE_OK && curl_getinfo($ch, CURLINFO_RESPONSE_CODE) === 200) {
+                    $results[] = curl_multi_getcontent($ch);
+                }
+
+                curl_multi_remove_handle($mh, $ch);
+                curl_close($ch);
+                unset($activeHandles[$id]);
+
+                // Pull next item
+                $enqueue();
+            }
+
+            if ($running > 0) {
+                curl_multi_select($mh, 0.05);
+            }
+        } while ($running > 0 || !empty($queue));
+
         curl_multi_close($mh);
         return $results;
     }
 
-    private function extractProxies(array $htmlContents): array {
-        $found = [];
-        // Regex looks for the whole tg:// link
-        $linkRegex = '/proxy\?(?=[^"]*server=)(?=[^"]*port=)([^"\'\s<>]+)/i';
+    /**
+     * Fast parsing of tg:// links without running heavy preg_match on all parameters
+     */
+    private function extractProxies(array $htmlPages): array {
+        $proxies = [];
 
-        foreach ($htmlContents as $html) {
-            // Decode HTML entities first (&amp; -> &)
-            $cleanHtml = html_entity_decode($html);
+        // Match the complete URI string
+        $pattern = '/(?:tg:\/\/|https?:\/\/t(?:elegram)?\.me\/)proxy\?([a-zA-Z0-9_\-\.\%&=]+)/i';
 
-            if (preg_match_all($linkRegex, $cleanHtml, $matches)) {
-                foreach ($matches[1] as $queryString) {
-                    // Manual Parameter Extraction (More robust than parse_str)
-                    $server = $this->getParam($queryString, 'server');
-                    $port   = $this->getParam($queryString, 'port');
-                    $secret = $this->getParam($queryString, 'secret');
+        foreach ($htmlPages as $html) {
+            if (!preg_match_all($pattern, $html, $matches)) {
+                continue;
+            }
 
-                    if ($server && $port && $secret) {
-                        // Strict Secret Cleaning
-                        $secret = $this->cleanSecret($secret);
-                        if (!$secret) continue; // Skip if secret became invalid
+            foreach ($matches[1] as $rawQuery) {
+                // Decode query entities
+                $queryString = html_entity_decode($rawQuery, ENT_QUOTES | ENT_HTML5, 'UTF-8');
+                parse_str($queryString, $params);
 
-                        $key = "$server:$port";
-                        
-                        // Detect Type
-                        $type = match (true) {
-    str_starts_with($secret, 'dd') => 'MTProto Secure',
-    str_starts_with($secret, 'ee') => 'MTProto TLS',
-    default => 'MTProto'
-};
-
-                        $found[$key] = [
-                            'server' => $server,
-                            'port'   => (int)$port,
-                            'secret' => $secret,
-                            'type'   => $type,
-                            // Rebuild URL cleanly to ensure validity
-                            'tg_url' => "tg://proxy?server={$server}&port={$port}&secret={$secret}"
-                        ];
-                    }
+                if (empty($params['server']) || empty($params['port']) || empty($params['secret'])) {
+                    continue;
                 }
+
+                $server = trim((string)$params['server']);
+                $port   = (int)$params['port'];
+                $secret = $this->cleanSecret((string)$params['secret']);
+
+                if ($port <= 0 || $port > 65535 || !$secret || empty($server)) {
+                    continue;
+                }
+
+                $key = "{$server}:{$port}";
+                if (isset($proxies[$key])) {
+                    continue;
+                }
+
+                $type = match (true) {
+                    str_starts_with($secret, 'ee') => 'MTProto TLS',
+                    str_starts_with($secret, 'dd') => 'MTProto Padded',
+                    default                        => 'MTProto Simple'
+                };
+
+                $proxies[$key] = [
+                    'server' => $server,
+                    'port'   => $port,
+                    'secret' => $secret,
+                    'type'   => $type,
+                    'tg_url' => "tg://proxy?server=" . rawurlencode($server) . "&port={$port}&secret={$secret}"
+                ];
             }
         }
-        return array_values($found);
+
+        return array_values($proxies);
     }
 
     /**
-     * Extracts a parameter value using regex to avoid parsing issues
-     */
-    private function getParam(string $query, string $name): ?string {
-        if (preg_match('/(?:^|&)' . $name . '=([^&]+)/', $query, $matches)) {
-            return trim(urldecode($matches[1]));
-        }
-        return null;
-    }
-
-    /**
-     * Validates and cleans the secret
+     * Validates MTProto Hex Secret formats
      */
     private function cleanSecret(string $secret): ?string {
-    $secret = strtolower(trim($secret));
+        $secret = strtolower(trim($secret));
 
-    if (!ctype_xdigit($secret)) {
+        if (!ctype_xdigit($secret)) {
+            return null;
+        }
+
+        $len = strlen($secret);
+
+        // MTProto Simple: exactly 16 bytes = 32 hex chars
+        // MTProto Padded: 'dd' prefix + 16 bytes = 34 hex chars
+        // MTProto TLS / FakeTLS: 'ee' prefix + 16 bytes + domain bytes >= 34 hex chars
+        if ($len === 32) {
+            return $secret;
+        }
+        if (str_starts_with($secret, 'dd') && $len === 34) {
+            return $secret;
+        }
+        if (str_starts_with($secret, 'ee') && $len >= 34 && ($len % 2 === 0)) {
+            return $secret;
+        }
+
         return null;
     }
 
-    $len = strlen($secret);
+    /**
+     * Non-blocking multi-socket TCP handshaker
+     */
+    private function checkConnectivity(array $proxies): array {
+        $results = [];
+        $batchSize = (int)(CONFIG['socket_batch'] ?? 64);
+        $timeout = (float)(CONFIG['socket_timeout'] ?? 2.0);
 
-    // Basic MTProto rules
-    if (str_starts_with($secret, 'dd') && $len !== 32) return null; // 16 bytes
-    if (str_starts_with($secret, 'ee') && $len < 34) return null;  // TLS
-    if (!str_starts_with($secret, 'dd') && !str_starts_with($secret, 'ee') && $len !== 32) {
-        return null;
-    }
+        foreach (array_chunk($proxies, $batchSize) as $chunk) {
+            $sockets = [];
+            $meta    = [];
 
-    return $secret;
-}
+            foreach ($chunk as $idx => $proxy) {
+                $address = "tcp://{$proxy['server']}:{$proxy['port']}";
+                
+                // Asynchronous non-blocking connect
+                $socket = @stream_socket_client(
+                    $address,
+                    $errno,
+                    $errstr,
+                    $timeout,
+                    STREAM_CLIENT_ASYNC_CONNECT
+                );
 
-    private function checkConnectivity(array $proxies): array
-{
-    $results = [];
+                if ($socket !== false) {
+                    stream_set_blocking($socket, false);
+                    $sockets[$idx] = $socket;
+                    $meta[$idx] = [
+                        'proxy' => $proxy,
+                        'start' => microtime(true),
+                    ];
+                } else {
+                    $proxy['status']  = 'Offline';
+                    $proxy['latency'] = null;
+                    $results[] = $proxy;
+                }
+            }
 
-    $batchSize = CONFIG['batch_size'] ?? 20;
-    $timeout   = CONFIG['socket_timeout'] ?? 2;
+            $deadline = microtime(true) + $timeout;
 
-    $chunks = array_chunk($proxies, (int)$batchSize);
+            while (!empty($sockets)) {
+                $timeLeft = $deadline - microtime(true);
+                if ($timeLeft <= 0) {
+                    break;
+                }
 
-    foreach ($chunks as $chunk) {
-        $sockets = [];
-        $map     = [];
+                $read   = null;
+                $write  = $sockets;
+                $except = null;
 
-        foreach ($chunk as $idx => $proxy) {
-            $address = "tcp://{$proxy['server']}:{$proxy['port']}";
+                $sec  = (int)$timeLeft;
+                $usec = (int)(($timeLeft - $sec) * 1_000_000);
 
-            $socket = @stream_socket_client(
-                $address,
-                $errno,
-                $errstr,
-                0,
-                STREAM_CLIENT_ASYNC_CONNECT | STREAM_CLIENT_CONNECT
-            );
+                $changed = @stream_select($read, $write, $except, $sec, $usec);
+                if ($changed === false || $changed === 0) {
+                    break;
+                }
 
-            if ($socket !== false) {
-                stream_set_blocking($socket, false);
-                $sockets[$idx] = $socket;
-                $map[$idx] = [
-                    'proxy' => $proxy,
-                    'start' => microtime(true),
-                ];
-            } else {
+                foreach ($write as $idx => $sock) {
+                    $info = $meta[$idx];
+                    $proxy = $info['proxy'];
+
+                    // stream_select on write will fire if connected OR on error.
+                    // We verify connection using stream_socket_get_name()
+                    if (@stream_socket_get_name($sock, true) !== false) {
+                        $proxy['status']  = 'Online';
+                        $proxy['latency'] = (int)round((microtime(true) - $info['start']) * 1000);
+                    } else {
+                        $proxy['status']  = 'Offline';
+                        $proxy['latency'] = null;
+                    }
+
+                    $results[] = $proxy;
+                    @fclose($sock);
+                    unset($sockets[$idx], $meta[$idx]);
+                }
+            }
+
+            // Timed out sockets
+            foreach ($sockets as $idx => $sock) {
+                $proxy = $meta[$idx]['proxy'];
                 $proxy['status']  = 'Offline';
                 $proxy['latency'] = null;
                 $results[] = $proxy;
+                @fclose($sock);
             }
         }
 
-        $startWait = microtime(true);
-
-        while (!empty($sockets) && (microtime(true) - $startWait) < $timeout) {
-
-            $write  = $sockets; // we only care about write-ready sockets
-            $read   = null;
-            $except = null;
-
-            $changed = @stream_select($read, $write, $except, 0, 200000);
-
-            if ($changed === false) {
-                break;
-            }
-
-            if ($changed > 0) {
-                foreach ($write as $id => $sock) {
-                    $info = $map[$id];
-
-                    $latency = (int) round(
-                        (microtime(true) - $info['start']) * 1000
-                    );
-
-                    $p = $info['proxy'];
-
-                    // Optional: minimal data write to detect dead accepts
-                    @fwrite($sock, random_bytes(32));
-                    stream_set_timeout($sock, 0, 200000);
-                    $data = @fread($sock, 1);
-
-                    if ($data !== false) {
-                        $p['status'] = 'Online';
-                    } else {
-                        $p['status'] = 'Unstable';
-                    }
-
-                    $p['latency'] = $latency;
-
-                    $results[] = $p;
-
-                    fclose($sock);
-                    unset($sockets[$id], $map[$id]);
-                }
-            }
-        }
-
-        // Anything still pending = Offline
-        foreach ($sockets as $id => $sock) {
-            $p = $map[$id]['proxy'];
-            $p['status']  = 'Offline';
-            $p['latency'] = null;
-            $results[] = $p;
-            fclose($sock);
-        }
+        return $results;
     }
 
-    return $results;
-}
+    private function atomicWrite(string $path, string $content): void {
+        $temp = $path . '.' . bin2hex(random_bytes(4)) . '.tmp';
+        file_put_contents($temp, $content, LOCK_EX);
+        rename($temp, $path);
+    }
 }
 
-// --- Run ---
-$isCli = (php_sapi_name() === 'cli');
-$shouldScan = false;
-$lastScanTime = file_exists(CONFIG['output_json']) ? filemtime(CONFIG['output_json']) : 0;
-
-if ($isCli || !file_exists(CONFIG['output_json']) || (time() - $lastScanTime) > CONFIG['cache_duration'] || isset($_GET['scan'])) {
-    $shouldScan = true;
-}
+// --- Execution Lifecycle ---
+$isCli = (PHP_SAPI === 'cli');
+$lastScanTime = is_file(CONFIG['output_json']) ? filemtime(CONFIG['output_json']) : 0;
+$shouldScan = $isCli 
+    || !is_file(CONFIG['output_json']) 
+    || (time() - $lastScanTime) > CONFIG['cache_duration'] 
+    || isset($_GET['scan']);
 
 if ($shouldScan) {
     $scanner = new ProxyScanner();
     $proxies = $scanner->run();
     $lastScanTime = time();
 } else {
-    $proxies = json_decode(file_get_contents(CONFIG['output_json']), true);
+    $proxies = json_decode(file_get_contents(CONFIG['output_json']), true) ?? [];
 }
 
-// Prepare View Data
-$onlineCount = count(array_filter($proxies, fn($p) => $p['status'] === 'Online'));
-$totalCount = count($proxies);
+$onlineCount   = count(array_filter($proxies, static fn($p) => ($p['status'] ?? '') === 'Online'));
+$totalCount    = count($proxies);
 $scanTimestamp = $lastScanTime;
 
-// Render
-ob_start();
-require 'template.phtml';
-$htmlContent = ob_get_clean();
-file_put_contents(CONFIG['output_html'], $htmlContent);
+// Render template safely
+if (is_file(__DIR__ . '/template.phtml')) {
+    ob_start();
+    require __DIR__ . '/template.phtml';
+    $htmlContent = ob_get_clean();
 
-if ($isCli) echo "Generated index.html with " . $onlineCount . " online proxies.\n";
-else echo $htmlContent;
-?>
+    $tempFile = CONFIG['output_html'] . '.tmp';
+    file_put_contents($tempFile, $htmlContent, LOCK_EX);
+    rename($tempFile, CONFIG['output_html']);
+
+    if ($isCli) {
+        echo "Generated index.html with {$onlineCount}/{$totalCount} online proxies.\n";
+    } else {
+        echo $htmlContent;
+    }
+}
