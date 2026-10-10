@@ -1,0 +1,2180 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>پایگاه پروکسی MTProto — پایش لحظه‌ای و اتصال پرسرعت</title>
+    
+    <!-- فونت وزیرمتن و جت‌برینز مونو -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Vazirmatn:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Vazirmatn', 'system-ui', 'sans-serif'],
+                        mono: ['"JetBrains Mono"', 'monospace'],
+                    },
+                    colors: {
+                        brand: {
+                            50: '#ecfeff',
+                            400: '#22d3ee',
+                            500: '#06b6d4',
+                            600: '#0891b2',
+                            950: '#082f49'
+                        },
+                        surface: {
+                            base: '#090d16',
+                            card: 'rgba(15, 23, 42, 0.7)',
+                            elevated: 'rgba(30, 41, 59, 0.75)'
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        .noise-bg {
+            background-image: radial-gradient(rgba(255, 255, 255, 0.04) 1px, transparent 0);
+            background-size: 24px 24px;
+        }
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 6px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: #334155;
+            border-radius: 9999px;
+        }
+    </style>
+</head>
+<body class="bg-surface-base text-slate-100 min-h-screen font-sans antialiased selection:bg-brand-500 selection:text-black noise-bg relative">
+
+    <!-- افکت‌های نوری پس‌زمینه -->
+    <div class="fixed inset-0 pointer-events-none overflow-hidden z-0">
+        <div class="absolute -top-40 right-1/2 translate-x-1/2 w-[45rem] h-[30rem] bg-gradient-to-tr from-brand-600/15 via-indigo-600/15 to-transparent blur-[140px] rounded-full"></div>
+        <div class="absolute bottom-[-10%] left-[-5%] w-[35rem] h-[35rem] bg-cyan-900/10 blur-[130px] rounded-full"></div>
+    </div>
+
+    <!-- اعلان وضعیت (Toast Notification) -->
+    <div id="toast" class="fixed bottom-6 left-6 z-50 flex items-center gap-3 px-5 py-3 rounded-2xl bg-slate-900/95 border border-slate-700/70 shadow-2xl backdrop-blur-xl transition-all duration-300 transform translate-y-20 opacity-0 pointer-events-none">
+        <span id="toast-icon" class="text-emerald-400">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>
+        </span>
+        <span id="toast-msg" class="text-xs font-semibold text-slate-200">عملیات با موفقیت انجام شد</span>
+    </div>
+
+    <main class="relative z-10 container mx-auto px-4 sm:px-6 lg:px-8 py-8 md:py-12 max-w-7xl">
+
+        <!-- سربرگ اصلی -->
+        <header class="flex flex-col lg:flex-row lg:items-center justify-between gap-6 pb-8 border-b border-slate-800/80 mb-8">
+            <div class="space-y-3">
+                <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-brand-500/10 border border-brand-500/20 text-brand-400 text-xs font-semibold">
+                    <span class="relative flex h-2 w-2">
+                        <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-brand-400 opacity-75"></span>
+                        <span class="relative inline-flex rounded-full h-2 w-2 bg-brand-400"></span>
+                    </span>
+                    مانیتورینگ زنده‌ی شبکه پروکسی
+                </div>
+                <h1 class="text-3xl md:text-5xl font-black tracking-tight text-white flex items-center gap-2">
+                    نکسوس <span class="text-brand-400">MTProto</span>
+                </h1>
+                <p class="text-slate-400 text-sm max-w-lg leading-relaxed">
+                    پروکسی‌های تلگرام تست شده به‌صورت خودکار با سنجش تاخیر میلی‌ثانیه‌ای و امکان اتصال مستقیم بدون نیاز به فیلترشکن.
+                </p>
+            </div>
+
+            <!-- باکس آمار و بازرسی مجدد -->
+            <div class="flex flex-wrap items-center gap-3">
+                <div class="flex items-center bg-slate-900/80 border border-slate-800 p-2 rounded-2xl backdrop-blur-md">
+                    <div class="px-4 py-1.5 border-l border-slate-800 text-right">
+                        <div class="text-[11px] text-slate-400 font-bold">آنلاین</div>
+                        <div class="text-xl font-bold font-mono text-emerald-400">32</div>
+                    </div>
+                    <div class="px-4 py-1.5 border-l border-slate-800 text-right">
+                        <div class="text-[11px] text-slate-400 font-bold">کل سرورها</div>
+                        <div class="text-xl font-bold font-mono text-slate-300">38</div>
+                    </div>
+                    <div class="px-4 py-1.5 text-right">
+                        <div class="text-[11px] text-slate-400 font-bold">پایداری</div>
+                        <div class="text-xl font-bold font-mono text-brand-400">
+                            84%
+                        </div>
+                    </div>
+                </div>
+
+                <a href="?scan=1" title="بررسی مجدد سرورها" 
+                   class="flex items-center gap-2 px-5 py-3.5 bg-brand-500 hover:bg-brand-400 text-slate-950 font-bold rounded-2xl transition duration-200 shadow-lg shadow-brand-500/20 active:scale-95 text-xs">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+                    بررسی مجدد
+                </a>
+            </div>
+        </header>
+
+        <!-- نوار فیلتر و جستجو -->
+        <section class="bg-surface-card border border-slate-800/80 rounded-2xl p-4 backdrop-blur-xl mb-8 space-y-4">
+            <div class="flex flex-col md:flex-row gap-3">
+                <!-- سرچ‌بار -->
+                <div class="relative flex-grow">
+                    <svg class="absolute right-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+                    <input type="text" id="proxy-search" placeholder="جستجو بر اساس آی‌پی، پورت، یا نوع رمزنگاری..." 
+                           class="w-full pr-10 pl-4 py-2.5 bg-slate-900/90 border border-slate-700/60 rounded-xl text-xs focus:outline-none focus:border-brand-500 text-slate-200 placeholder-slate-500 transition">
+                </div>
+
+                <!-- دکمه‌های فیلتر سریع -->
+                <div class="flex items-center gap-1.5 p-1 bg-slate-900/90 border border-slate-700/60 rounded-xl text-xs font-semibold">
+                    <button data-filter="all" class="filter-btn active-filter px-3.5 py-1.5 rounded-lg text-slate-300 hover:text-white transition">همه</button>
+                    <button data-filter="online" class="filter-btn px-3.5 py-1.5 rounded-lg text-slate-400 hover:text-white transition">فقط آنلاین‌ها</button>
+                    <button data-filter="tls" class="filter-btn px-3.5 py-1.5 rounded-lg text-slate-400 hover:text-white transition">دارای TLS</button>
+                </div>
+
+                <!-- کلیدهای برون‌بری (Export) -->
+                <div class="flex items-center gap-2">
+                    <button id="export-clipboard-btn" class="flex items-center gap-2 px-4 py-2.5 bg-slate-800 hover:bg-slate-700 border border-slate-700/80 rounded-xl text-xs font-bold text-slate-300 transition active:scale-95">
+                        <svg class="w-4 h-4 text-brand-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7v8a2 2 0 002 2h6M8 7V5a2 2 0 012-2h4.586a1 1 0 01.707.293l4.414 4.414a1 1 0 01.293.707V15a2 2 0 01-2 2h-2M8 7H6a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2v-2"/></svg>
+                        کپی همه لینک‌ها
+                    </button>
+                    <button id="download-json-btn" class="p-2.5 bg-slate-800 hover:bg-slate-700 border border-slate-700/80 rounded-xl text-slate-300 transition active:scale-95" title="خروجی JSON">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+                    </button>
+                </div>
+            </div>
+
+            <!-- اطلاعات جزئی وضعیت -->
+            <div class="flex flex-wrap items-center justify-between text-xs text-slate-400 pt-2 border-t border-slate-800/60 font-mono">
+                <div>تعداد نتایج: <span id="visible-count" class="text-white font-bold font-mono">38</span> سرور</div>
+                <div class="font-sans">آخرین بررسی: <span id="time-ago" data-timestamp="1791660327" class="text-slate-300 font-semibold">چند لحظه پیش</span></div>
+            </div>
+        </section>
+
+        <!-- شبکه کارت‌های پروکسی -->
+        <div id="proxy-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 pb-24">
+                        <article class="proxy-card group flex flex-col justify-between p-5 rounded-2xl bg-surface-card border border-slate-800/80 hover:border-slate-700 transition-all duration-200 hover:shadow-xl hover:shadow-cyan-950/20 relative overflow-hidden backdrop-blur-md is-online"
+                     data-server="194.60.228.11"
+                     data-port="2053"
+                     data-type="mtproto secure"
+                     data-status="online"
+                     data-latency="116"
+                     data-url="tg://proxy?server=194.60.228.11&amp;port=2053&amp;secret=dd79e344818749bd7ac519130220c25d09">
+
+                <div>
+                    <!-- سربرگ کارت -->
+                    <div class="flex items-center justify-between mb-4 gap-2">
+                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-md text-[11px] font-mono font-bold uppercase tracking-wider border text-indigo-400 border-indigo-400/25 bg-indigo-400/10">
+                            MTProto Secure                        </span>
+                        
+                        <div dir="ltr" class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-xs font-mono font-bold bg-emerald-500/10 text-emerald-400 border-emerald-500/20">
+                            <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                            116 ms                        </div>
+                    </div>
+
+                    <!-- جزییات آدرس سرور -->
+                    <div class="space-y-1 mb-5">
+                        <div class="text-[11px] text-slate-500 font-bold">آدرس سرور میزبان</div>
+                        <div dir="ltr" class="text-base font-bold font-mono text-slate-100 truncate text-right select-all" title="194.60.228.11">
+                            194.60.228.11                        </div>
+                        <div dir="ltr" class="text-xs font-mono text-slate-400 flex items-center justify-end gap-1.5 pt-0.5">
+                            <span class="text-slate-300 font-semibold">2053</span>
+                            <span class="text-slate-500">:پورت</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- دکمه‌های اقدام -->
+                <div class="pt-4 border-t border-slate-800/80 flex items-center gap-2">
+                    <a href="tg://proxy?server=194.60.228.11&amp;port=2053&amp;secret=dd79e344818749bd7ac519130220c25d09" 
+                       class="flex-1 flex items-center justify-center gap-1.5 py-2.5 px-3 rounded-xl bg-brand-500/10 hover:bg-brand-500 text-brand-400 hover:text-slate-950 font-bold text-xs transition border border-brand-500/25 active:scale-95">
+                        <span>اتصال به تلگرام</span>
+                        <svg class="w-3.5 h-3.5 rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M14 5l7 7m0 0l-7 7m7-7H3"/></svg>
+                    </a>
+                    
+                    <button class="copy-btn p-2.5 rounded-xl bg-slate-800/80 hover:bg-slate-700 text-slate-300 border border-slate-700/60 transition active:scale-90" title="کپی لینک پروکسی">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
+                    </button>
+
+                    <button class="qr-btn p-2.5 rounded-xl bg-slate-800/80 hover:bg-slate-700 text-slate-300 border border-slate-700/60 transition active:scale-90" title="نمایش بارکد QR">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v1m6 11h2m-6 0h-2v4h2v-4zM6 6h6v6H6V6zm12 0h6v6h-6V6zm-6 12h6v6h-6v-6z"/></svg>
+                    </button>
+                </div>
+            </article>
+                        <article class="proxy-card group flex flex-col justify-between p-5 rounded-2xl bg-surface-card border border-slate-800/80 hover:border-slate-700 transition-all duration-200 hover:shadow-xl hover:shadow-cyan-950/20 relative overflow-hidden backdrop-blur-md is-online"
+                     data-server="sadaf.goooalir.co.uk"
+                     data-port="8443"
+                     data-type="mtproto secure"
+                     data-status="online"
+                     data-latency="121"
+                     data-url="tg://proxy?server=sadaf.goooalir.co.uk&amp;port=8443&amp;secret=dd104462821249bd7ac519130220c25d09">
+
+                <div>
+                    <!-- سربرگ کارت -->
+                    <div class="flex items-center justify-between mb-4 gap-2">
+                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-md text-[11px] font-mono font-bold uppercase tracking-wider border text-indigo-400 border-indigo-400/25 bg-indigo-400/10">
+                            MTProto Secure                        </span>
+                        
+                        <div dir="ltr" class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-xs font-mono font-bold bg-emerald-500/10 text-emerald-400 border-emerald-500/20">
+                            <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                            121 ms                        </div>
+                    </div>
+
+                    <!-- جزییات آدرس سرور -->
+                    <div class="space-y-1 mb-5">
+                        <div class="text-[11px] text-slate-500 font-bold">آدرس سرور میزبان</div>
+                        <div dir="ltr" class="text-base font-bold font-mono text-slate-100 truncate text-right select-all" title="sadaf.goooalir.co.uk">
+                            sadaf.goooalir.co.uk                        </div>
+                        <div dir="ltr" class="text-xs font-mono text-slate-400 flex items-center justify-end gap-1.5 pt-0.5">
+                            <span class="text-slate-300 font-semibold">8443</span>
+                            <span class="text-slate-500">:پورت</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- دکمه‌های اقدام -->
+                <div class="pt-4 border-t border-slate-800/80 flex items-center gap-2">
+                    <a href="tg://proxy?server=sadaf.goooalir.co.uk&amp;port=8443&amp;secret=dd104462821249bd7ac519130220c25d09" 
+                       class="flex-1 flex items-center justify-center gap-1.5 py-2.5 px-3 rounded-xl bg-brand-500/10 hover:bg-brand-500 text-brand-400 hover:text-slate-950 font-bold text-xs transition border border-brand-500/25 active:scale-95">
+                        <span>اتصال به تلگرام</span>
+                        <svg class="w-3.5 h-3.5 rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M14 5l7 7m0 0l-7 7m7-7H3"/></svg>
+                    </a>
+                    
+                    <button class="copy-btn p-2.5 rounded-xl bg-slate-800/80 hover:bg-slate-700 text-slate-300 border border-slate-700/60 transition active:scale-90" title="کپی لینک پروکسی">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
+                    </button>
+
+                    <button class="qr-btn p-2.5 rounded-xl bg-slate-800/80 hover:bg-slate-700 text-slate-300 border border-slate-700/60 transition active:scale-90" title="نمایش بارکد QR">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v1m6 11h2m-6 0h-2v4h2v-4zM6 6h6v6H6V6zm12 0h6v6h-6V6zm-6 12h6v6h-6v-6z"/></svg>
+                    </button>
+                </div>
+            </article>
+                        <article class="proxy-card group flex flex-col justify-between p-5 rounded-2xl bg-surface-card border border-slate-800/80 hover:border-slate-700 transition-all duration-200 hover:shadow-xl hover:shadow-cyan-950/20 relative overflow-hidden backdrop-blur-md is-online"
+                     data-server="ff661g.ir.meli-n13.info"
+                     data-port="8443"
+                     data-type="mtproto"
+                     data-status="online"
+                     data-latency="487"
+                     data-url="tg://proxy?server=ff661g.ir.meli-n13.info&amp;port=8443&amp;secret=104462821249bd7ac519130220c25d09">
+
+                <div>
+                    <!-- سربرگ کارت -->
+                    <div class="flex items-center justify-between mb-4 gap-2">
+                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-md text-[11px] font-mono font-bold uppercase tracking-wider border text-slate-400 border-slate-700 bg-slate-800/50">
+                            MTProto                        </span>
+                        
+                        <div dir="ltr" class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-xs font-mono font-bold bg-orange-500/10 text-orange-400 border-orange-500/20">
+                            <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                            487 ms                        </div>
+                    </div>
+
+                    <!-- جزییات آدرس سرور -->
+                    <div class="space-y-1 mb-5">
+                        <div class="text-[11px] text-slate-500 font-bold">آدرس سرور میزبان</div>
+                        <div dir="ltr" class="text-base font-bold font-mono text-slate-100 truncate text-right select-all" title="ff661g.ir.meli-n13.info">
+                            ff661g.ir.meli-n13.info                        </div>
+                        <div dir="ltr" class="text-xs font-mono text-slate-400 flex items-center justify-end gap-1.5 pt-0.5">
+                            <span class="text-slate-300 font-semibold">8443</span>
+                            <span class="text-slate-500">:پورت</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- دکمه‌های اقدام -->
+                <div class="pt-4 border-t border-slate-800/80 flex items-center gap-2">
+                    <a href="tg://proxy?server=ff661g.ir.meli-n13.info&amp;port=8443&amp;secret=104462821249bd7ac519130220c25d09" 
+                       class="flex-1 flex items-center justify-center gap-1.5 py-2.5 px-3 rounded-xl bg-brand-500/10 hover:bg-brand-500 text-brand-400 hover:text-slate-950 font-bold text-xs transition border border-brand-500/25 active:scale-95">
+                        <span>اتصال به تلگرام</span>
+                        <svg class="w-3.5 h-3.5 rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M14 5l7 7m0 0l-7 7m7-7H3"/></svg>
+                    </a>
+                    
+                    <button class="copy-btn p-2.5 rounded-xl bg-slate-800/80 hover:bg-slate-700 text-slate-300 border border-slate-700/60 transition active:scale-90" title="کپی لینک پروکسی">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
+                    </button>
+
+                    <button class="qr-btn p-2.5 rounded-xl bg-slate-800/80 hover:bg-slate-700 text-slate-300 border border-slate-700/60 transition active:scale-90" title="نمایش بارکد QR">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v1m6 11h2m-6 0h-2v4h2v-4zM6 6h6v6H6V6zm12 0h6v6h-6V6zm-6 12h6v6h-6v-6z"/></svg>
+                    </button>
+                </div>
+            </article>
+                        <article class="proxy-card group flex flex-col justify-between p-5 rounded-2xl bg-surface-card border border-slate-800/80 hover:border-slate-700 transition-all duration-200 hover:shadow-xl hover:shadow-cyan-950/20 relative overflow-hidden backdrop-blur-md is-online"
+                     data-server="ff16g.ir.meli-n13.info"
+                     data-port="8443"
+                     data-type="mtproto"
+                     data-status="online"
+                     data-latency="560"
+                     data-url="tg://proxy?server=ff16g.ir.meli-n13.info&amp;port=8443&amp;secret=104462821249bd7ac519130220c25d09">
+
+                <div>
+                    <!-- سربرگ کارت -->
+                    <div class="flex items-center justify-between mb-4 gap-2">
+                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-md text-[11px] font-mono font-bold uppercase tracking-wider border text-slate-400 border-slate-700 bg-slate-800/50">
+                            MTProto                        </span>
+                        
+                        <div dir="ltr" class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-xs font-mono font-bold bg-orange-500/10 text-orange-400 border-orange-500/20">
+                            <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                            560 ms                        </div>
+                    </div>
+
+                    <!-- جزییات آدرس سرور -->
+                    <div class="space-y-1 mb-5">
+                        <div class="text-[11px] text-slate-500 font-bold">آدرس سرور میزبان</div>
+                        <div dir="ltr" class="text-base font-bold font-mono text-slate-100 truncate text-right select-all" title="ff16g.ir.meli-n13.info">
+                            ff16g.ir.meli-n13.info                        </div>
+                        <div dir="ltr" class="text-xs font-mono text-slate-400 flex items-center justify-end gap-1.5 pt-0.5">
+                            <span class="text-slate-300 font-semibold">8443</span>
+                            <span class="text-slate-500">:پورت</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- دکمه‌های اقدام -->
+                <div class="pt-4 border-t border-slate-800/80 flex items-center gap-2">
+                    <a href="tg://proxy?server=ff16g.ir.meli-n13.info&amp;port=8443&amp;secret=104462821249bd7ac519130220c25d09" 
+                       class="flex-1 flex items-center justify-center gap-1.5 py-2.5 px-3 rounded-xl bg-brand-500/10 hover:bg-brand-500 text-brand-400 hover:text-slate-950 font-bold text-xs transition border border-brand-500/25 active:scale-95">
+                        <span>اتصال به تلگرام</span>
+                        <svg class="w-3.5 h-3.5 rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M14 5l7 7m0 0l-7 7m7-7H3"/></svg>
+                    </a>
+                    
+                    <button class="copy-btn p-2.5 rounded-xl bg-slate-800/80 hover:bg-slate-700 text-slate-300 border border-slate-700/60 transition active:scale-90" title="کپی لینک پروکسی">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
+                    </button>
+
+                    <button class="qr-btn p-2.5 rounded-xl bg-slate-800/80 hover:bg-slate-700 text-slate-300 border border-slate-700/60 transition active:scale-90" title="نمایش بارکد QR">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v1m6 11h2m-6 0h-2v4h2v-4zM6 6h6v6H6V6zm12 0h6v6h-6V6zm-6 12h6v6h-6v-6z"/></svg>
+                    </button>
+                </div>
+            </article>
+                        <article class="proxy-card group flex flex-col justify-between p-5 rounded-2xl bg-surface-card border border-slate-800/80 hover:border-slate-700 transition-all duration-200 hover:shadow-xl hover:shadow-cyan-950/20 relative overflow-hidden backdrop-blur-md is-online"
+                     data-server="tazenafas.dingi3.co.uk"
+                     data-port="4455"
+                     data-type="mtproto secure"
+                     data-status="online"
+                     data-latency="704"
+                     data-url="tg://proxy?server=tazenafas.dingi3.co.uk&amp;port=4455&amp;secret=dd104462821249bd7ac519130220c25d09">
+
+                <div>
+                    <!-- سربرگ کارت -->
+                    <div class="flex items-center justify-between mb-4 gap-2">
+                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-md text-[11px] font-mono font-bold uppercase tracking-wider border text-indigo-400 border-indigo-400/25 bg-indigo-400/10">
+                            MTProto Secure                        </span>
+                        
+                        <div dir="ltr" class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-xs font-mono font-bold bg-orange-500/10 text-orange-400 border-orange-500/20">
+                            <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                            704 ms                        </div>
+                    </div>
+
+                    <!-- جزییات آدرس سرور -->
+                    <div class="space-y-1 mb-5">
+                        <div class="text-[11px] text-slate-500 font-bold">آدرس سرور میزبان</div>
+                        <div dir="ltr" class="text-base font-bold font-mono text-slate-100 truncate text-right select-all" title="tazenafas.dingi3.co.uk">
+                            tazenafas.dingi3.co.uk                        </div>
+                        <div dir="ltr" class="text-xs font-mono text-slate-400 flex items-center justify-end gap-1.5 pt-0.5">
+                            <span class="text-slate-300 font-semibold">4455</span>
+                            <span class="text-slate-500">:پورت</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- دکمه‌های اقدام -->
+                <div class="pt-4 border-t border-slate-800/80 flex items-center gap-2">
+                    <a href="tg://proxy?server=tazenafas.dingi3.co.uk&amp;port=4455&amp;secret=dd104462821249bd7ac519130220c25d09" 
+                       class="flex-1 flex items-center justify-center gap-1.5 py-2.5 px-3 rounded-xl bg-brand-500/10 hover:bg-brand-500 text-brand-400 hover:text-slate-950 font-bold text-xs transition border border-brand-500/25 active:scale-95">
+                        <span>اتصال به تلگرام</span>
+                        <svg class="w-3.5 h-3.5 rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M14 5l7 7m0 0l-7 7m7-7H3"/></svg>
+                    </a>
+                    
+                    <button class="copy-btn p-2.5 rounded-xl bg-slate-800/80 hover:bg-slate-700 text-slate-300 border border-slate-700/60 transition active:scale-90" title="کپی لینک پروکسی">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
+                    </button>
+
+                    <button class="qr-btn p-2.5 rounded-xl bg-slate-800/80 hover:bg-slate-700 text-slate-300 border border-slate-700/60 transition active:scale-90" title="نمایش بارکد QR">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v1m6 11h2m-6 0h-2v4h2v-4zM6 6h6v6H6V6zm12 0h6v6h-6V6zm-6 12h6v6h-6v-6z"/></svg>
+                    </button>
+                </div>
+            </article>
+                        <article class="proxy-card group flex flex-col justify-between p-5 rounded-2xl bg-surface-card border border-slate-800/80 hover:border-slate-700 transition-all duration-200 hover:shadow-xl hover:shadow-cyan-950/20 relative overflow-hidden backdrop-blur-md is-online"
+                     data-server="dd7d8ujjjh.ir.ir.ir.meli-n12.info"
+                     data-port="8443"
+                     data-type="mtproto secure"
+                     data-status="online"
+                     data-latency="797"
+                     data-url="tg://proxy?server=dd7d8ujjjh.ir.ir.ir.meli-n12.info&amp;port=8443&amp;secret=dd104462821249bd7ac519130220c25d09">
+
+                <div>
+                    <!-- سربرگ کارت -->
+                    <div class="flex items-center justify-between mb-4 gap-2">
+                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-md text-[11px] font-mono font-bold uppercase tracking-wider border text-indigo-400 border-indigo-400/25 bg-indigo-400/10">
+                            MTProto Secure                        </span>
+                        
+                        <div dir="ltr" class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-xs font-mono font-bold bg-orange-500/10 text-orange-400 border-orange-500/20">
+                            <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                            797 ms                        </div>
+                    </div>
+
+                    <!-- جزییات آدرس سرور -->
+                    <div class="space-y-1 mb-5">
+                        <div class="text-[11px] text-slate-500 font-bold">آدرس سرور میزبان</div>
+                        <div dir="ltr" class="text-base font-bold font-mono text-slate-100 truncate text-right select-all" title="dd7d8ujjjh.ir.ir.ir.meli-n12.info">
+                            dd7d8ujjjh.ir.ir.ir.meli-n12.info                        </div>
+                        <div dir="ltr" class="text-xs font-mono text-slate-400 flex items-center justify-end gap-1.5 pt-0.5">
+                            <span class="text-slate-300 font-semibold">8443</span>
+                            <span class="text-slate-500">:پورت</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- دکمه‌های اقدام -->
+                <div class="pt-4 border-t border-slate-800/80 flex items-center gap-2">
+                    <a href="tg://proxy?server=dd7d8ujjjh.ir.ir.ir.meli-n12.info&amp;port=8443&amp;secret=dd104462821249bd7ac519130220c25d09" 
+                       class="flex-1 flex items-center justify-center gap-1.5 py-2.5 px-3 rounded-xl bg-brand-500/10 hover:bg-brand-500 text-brand-400 hover:text-slate-950 font-bold text-xs transition border border-brand-500/25 active:scale-95">
+                        <span>اتصال به تلگرام</span>
+                        <svg class="w-3.5 h-3.5 rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M14 5l7 7m0 0l-7 7m7-7H3"/></svg>
+                    </a>
+                    
+                    <button class="copy-btn p-2.5 rounded-xl bg-slate-800/80 hover:bg-slate-700 text-slate-300 border border-slate-700/60 transition active:scale-90" title="کپی لینک پروکسی">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
+                    </button>
+
+                    <button class="qr-btn p-2.5 rounded-xl bg-slate-800/80 hover:bg-slate-700 text-slate-300 border border-slate-700/60 transition active:scale-90" title="نمایش بارکد QR">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v1m6 11h2m-6 0h-2v4h2v-4zM6 6h6v6H6V6zm12 0h6v6h-6V6zm-6 12h6v6h-6v-6z"/></svg>
+                    </button>
+                </div>
+            </article>
+                        <article class="proxy-card group flex flex-col justify-between p-5 rounded-2xl bg-surface-card border border-slate-800/80 hover:border-slate-700 transition-all duration-200 hover:shadow-xl hover:shadow-cyan-950/20 relative overflow-hidden backdrop-blur-md is-online"
+                     data-server="pphhg.ir.meli-n13.info"
+                     data-port="8443"
+                     data-type="mtproto"
+                     data-status="online"
+                     data-latency="889"
+                     data-url="tg://proxy?server=pphhg.ir.meli-n13.info&amp;port=8443&amp;secret=104462821249bd7ac519130220c25d09">
+
+                <div>
+                    <!-- سربرگ کارت -->
+                    <div class="flex items-center justify-between mb-4 gap-2">
+                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-md text-[11px] font-mono font-bold uppercase tracking-wider border text-slate-400 border-slate-700 bg-slate-800/50">
+                            MTProto                        </span>
+                        
+                        <div dir="ltr" class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-xs font-mono font-bold bg-orange-500/10 text-orange-400 border-orange-500/20">
+                            <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                            889 ms                        </div>
+                    </div>
+
+                    <!-- جزییات آدرس سرور -->
+                    <div class="space-y-1 mb-5">
+                        <div class="text-[11px] text-slate-500 font-bold">آدرس سرور میزبان</div>
+                        <div dir="ltr" class="text-base font-bold font-mono text-slate-100 truncate text-right select-all" title="pphhg.ir.meli-n13.info">
+                            pphhg.ir.meli-n13.info                        </div>
+                        <div dir="ltr" class="text-xs font-mono text-slate-400 flex items-center justify-end gap-1.5 pt-0.5">
+                            <span class="text-slate-300 font-semibold">8443</span>
+                            <span class="text-slate-500">:پورت</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- دکمه‌های اقدام -->
+                <div class="pt-4 border-t border-slate-800/80 flex items-center gap-2">
+                    <a href="tg://proxy?server=pphhg.ir.meli-n13.info&amp;port=8443&amp;secret=104462821249bd7ac519130220c25d09" 
+                       class="flex-1 flex items-center justify-center gap-1.5 py-2.5 px-3 rounded-xl bg-brand-500/10 hover:bg-brand-500 text-brand-400 hover:text-slate-950 font-bold text-xs transition border border-brand-500/25 active:scale-95">
+                        <span>اتصال به تلگرام</span>
+                        <svg class="w-3.5 h-3.5 rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M14 5l7 7m0 0l-7 7m7-7H3"/></svg>
+                    </a>
+                    
+                    <button class="copy-btn p-2.5 rounded-xl bg-slate-800/80 hover:bg-slate-700 text-slate-300 border border-slate-700/60 transition active:scale-90" title="کپی لینک پروکسی">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
+                    </button>
+
+                    <button class="qr-btn p-2.5 rounded-xl bg-slate-800/80 hover:bg-slate-700 text-slate-300 border border-slate-700/60 transition active:scale-90" title="نمایش بارکد QR">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v1m6 11h2m-6 0h-2v4h2v-4zM6 6h6v6H6V6zm12 0h6v6h-6V6zm-6 12h6v6h-6v-6z"/></svg>
+                    </button>
+                </div>
+            </article>
+                        <article class="proxy-card group flex flex-col justify-between p-5 rounded-2xl bg-surface-card border border-slate-800/80 hover:border-slate-700 transition-all duration-200 hover:shadow-xl hover:shadow-cyan-950/20 relative overflow-hidden backdrop-blur-md is-online"
+                     data-server="6781.ir.mmd.yayayajd.co.uk"
+                     data-port="8443"
+                     data-type="mtproto secure"
+                     data-status="online"
+                     data-latency="957"
+                     data-url="tg://proxy?server=6781.ir.mmd.yayayajd.co.uk&amp;port=8443&amp;secret=dd104462821249bd7ac519130220c25d09">
+
+                <div>
+                    <!-- سربرگ کارت -->
+                    <div class="flex items-center justify-between mb-4 gap-2">
+                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-md text-[11px] font-mono font-bold uppercase tracking-wider border text-indigo-400 border-indigo-400/25 bg-indigo-400/10">
+                            MTProto Secure                        </span>
+                        
+                        <div dir="ltr" class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-xs font-mono font-bold bg-orange-500/10 text-orange-400 border-orange-500/20">
+                            <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                            957 ms                        </div>
+                    </div>
+
+                    <!-- جزییات آدرس سرور -->
+                    <div class="space-y-1 mb-5">
+                        <div class="text-[11px] text-slate-500 font-bold">آدرس سرور میزبان</div>
+                        <div dir="ltr" class="text-base font-bold font-mono text-slate-100 truncate text-right select-all" title="6781.ir.mmd.yayayajd.co.uk">
+                            6781.ir.mmd.yayayajd.co.uk                        </div>
+                        <div dir="ltr" class="text-xs font-mono text-slate-400 flex items-center justify-end gap-1.5 pt-0.5">
+                            <span class="text-slate-300 font-semibold">8443</span>
+                            <span class="text-slate-500">:پورت</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- دکمه‌های اقدام -->
+                <div class="pt-4 border-t border-slate-800/80 flex items-center gap-2">
+                    <a href="tg://proxy?server=6781.ir.mmd.yayayajd.co.uk&amp;port=8443&amp;secret=dd104462821249bd7ac519130220c25d09" 
+                       class="flex-1 flex items-center justify-center gap-1.5 py-2.5 px-3 rounded-xl bg-brand-500/10 hover:bg-brand-500 text-brand-400 hover:text-slate-950 font-bold text-xs transition border border-brand-500/25 active:scale-95">
+                        <span>اتصال به تلگرام</span>
+                        <svg class="w-3.5 h-3.5 rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M14 5l7 7m0 0l-7 7m7-7H3"/></svg>
+                    </a>
+                    
+                    <button class="copy-btn p-2.5 rounded-xl bg-slate-800/80 hover:bg-slate-700 text-slate-300 border border-slate-700/60 transition active:scale-90" title="کپی لینک پروکسی">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
+                    </button>
+
+                    <button class="qr-btn p-2.5 rounded-xl bg-slate-800/80 hover:bg-slate-700 text-slate-300 border border-slate-700/60 transition active:scale-90" title="نمایش بارکد QR">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v1m6 11h2m-6 0h-2v4h2v-4zM6 6h6v6H6V6zm12 0h6v6h-6V6zm-6 12h6v6h-6v-6z"/></svg>
+                    </button>
+                </div>
+            </article>
+                        <article class="proxy-card group flex flex-col justify-between p-5 rounded-2xl bg-surface-card border border-slate-800/80 hover:border-slate-700 transition-all duration-200 hover:shadow-xl hover:shadow-cyan-950/20 relative overflow-hidden backdrop-blur-md is-online"
+                     data-server="61.ir.mmd.yayayajd.co.uk"
+                     data-port="8443"
+                     data-type="mtproto secure"
+                     data-status="online"
+                     data-latency="1092"
+                     data-url="tg://proxy?server=61.ir.mmd.yayayajd.co.uk&amp;port=8443&amp;secret=dd104462821249bd7ac519130220c25d09">
+
+                <div>
+                    <!-- سربرگ کارت -->
+                    <div class="flex items-center justify-between mb-4 gap-2">
+                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-md text-[11px] font-mono font-bold uppercase tracking-wider border text-indigo-400 border-indigo-400/25 bg-indigo-400/10">
+                            MTProto Secure                        </span>
+                        
+                        <div dir="ltr" class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-xs font-mono font-bold bg-orange-500/10 text-orange-400 border-orange-500/20">
+                            <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                            1092 ms                        </div>
+                    </div>
+
+                    <!-- جزییات آدرس سرور -->
+                    <div class="space-y-1 mb-5">
+                        <div class="text-[11px] text-slate-500 font-bold">آدرس سرور میزبان</div>
+                        <div dir="ltr" class="text-base font-bold font-mono text-slate-100 truncate text-right select-all" title="61.ir.mmd.yayayajd.co.uk">
+                            61.ir.mmd.yayayajd.co.uk                        </div>
+                        <div dir="ltr" class="text-xs font-mono text-slate-400 flex items-center justify-end gap-1.5 pt-0.5">
+                            <span class="text-slate-300 font-semibold">8443</span>
+                            <span class="text-slate-500">:پورت</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- دکمه‌های اقدام -->
+                <div class="pt-4 border-t border-slate-800/80 flex items-center gap-2">
+                    <a href="tg://proxy?server=61.ir.mmd.yayayajd.co.uk&amp;port=8443&amp;secret=dd104462821249bd7ac519130220c25d09" 
+                       class="flex-1 flex items-center justify-center gap-1.5 py-2.5 px-3 rounded-xl bg-brand-500/10 hover:bg-brand-500 text-brand-400 hover:text-slate-950 font-bold text-xs transition border border-brand-500/25 active:scale-95">
+                        <span>اتصال به تلگرام</span>
+                        <svg class="w-3.5 h-3.5 rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M14 5l7 7m0 0l-7 7m7-7H3"/></svg>
+                    </a>
+                    
+                    <button class="copy-btn p-2.5 rounded-xl bg-slate-800/80 hover:bg-slate-700 text-slate-300 border border-slate-700/60 transition active:scale-90" title="کپی لینک پروکسی">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
+                    </button>
+
+                    <button class="qr-btn p-2.5 rounded-xl bg-slate-800/80 hover:bg-slate-700 text-slate-300 border border-slate-700/60 transition active:scale-90" title="نمایش بارکد QR">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v1m6 11h2m-6 0h-2v4h2v-4zM6 6h6v6H6V6zm12 0h6v6h-6V6zm-6 12h6v6h-6v-6z"/></svg>
+                    </button>
+                </div>
+            </article>
+                        <article class="proxy-card group flex flex-col justify-between p-5 rounded-2xl bg-surface-card border border-slate-800/80 hover:border-slate-700 transition-all duration-200 hover:shadow-xl hover:shadow-cyan-950/20 relative overflow-hidden backdrop-blur-md is-online"
+                     data-server="ahvaz.co.uk"
+                     data-port="4455"
+                     data-type="mtproto secure"
+                     data-status="online"
+                     data-latency="1339"
+                     data-url="tg://proxy?server=ahvaz.co.uk&amp;port=4455&amp;secret=dd104462821249bd7ac519130220c25d09">
+
+                <div>
+                    <!-- سربرگ کارت -->
+                    <div class="flex items-center justify-between mb-4 gap-2">
+                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-md text-[11px] font-mono font-bold uppercase tracking-wider border text-indigo-400 border-indigo-400/25 bg-indigo-400/10">
+                            MTProto Secure                        </span>
+                        
+                        <div dir="ltr" class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-xs font-mono font-bold bg-orange-500/10 text-orange-400 border-orange-500/20">
+                            <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                            1339 ms                        </div>
+                    </div>
+
+                    <!-- جزییات آدرس سرور -->
+                    <div class="space-y-1 mb-5">
+                        <div class="text-[11px] text-slate-500 font-bold">آدرس سرور میزبان</div>
+                        <div dir="ltr" class="text-base font-bold font-mono text-slate-100 truncate text-right select-all" title="ahvaz.co.uk">
+                            ahvaz.co.uk                        </div>
+                        <div dir="ltr" class="text-xs font-mono text-slate-400 flex items-center justify-end gap-1.5 pt-0.5">
+                            <span class="text-slate-300 font-semibold">4455</span>
+                            <span class="text-slate-500">:پورت</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- دکمه‌های اقدام -->
+                <div class="pt-4 border-t border-slate-800/80 flex items-center gap-2">
+                    <a href="tg://proxy?server=ahvaz.co.uk&amp;port=4455&amp;secret=dd104462821249bd7ac519130220c25d09" 
+                       class="flex-1 flex items-center justify-center gap-1.5 py-2.5 px-3 rounded-xl bg-brand-500/10 hover:bg-brand-500 text-brand-400 hover:text-slate-950 font-bold text-xs transition border border-brand-500/25 active:scale-95">
+                        <span>اتصال به تلگرام</span>
+                        <svg class="w-3.5 h-3.5 rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M14 5l7 7m0 0l-7 7m7-7H3"/></svg>
+                    </a>
+                    
+                    <button class="copy-btn p-2.5 rounded-xl bg-slate-800/80 hover:bg-slate-700 text-slate-300 border border-slate-700/60 transition active:scale-90" title="کپی لینک پروکسی">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
+                    </button>
+
+                    <button class="qr-btn p-2.5 rounded-xl bg-slate-800/80 hover:bg-slate-700 text-slate-300 border border-slate-700/60 transition active:scale-90" title="نمایش بارکد QR">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v1m6 11h2m-6 0h-2v4h2v-4zM6 6h6v6H6V6zm12 0h6v6h-6V6zm-6 12h6v6h-6v-6z"/></svg>
+                    </button>
+                </div>
+            </article>
+                        <article class="proxy-card group flex flex-col justify-between p-5 rounded-2xl bg-surface-card border border-slate-800/80 hover:border-slate-700 transition-all duration-200 hover:shadow-xl hover:shadow-cyan-950/20 relative overflow-hidden backdrop-blur-md is-online"
+                     data-server="royaclinic.co.uk"
+                     data-port="4455"
+                     data-type="mtproto secure"
+                     data-status="online"
+                     data-latency="1361"
+                     data-url="tg://proxy?server=royaclinic.co.uk&amp;port=4455&amp;secret=dd104462821249bd7ac519130220c25d09">
+
+                <div>
+                    <!-- سربرگ کارت -->
+                    <div class="flex items-center justify-between mb-4 gap-2">
+                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-md text-[11px] font-mono font-bold uppercase tracking-wider border text-indigo-400 border-indigo-400/25 bg-indigo-400/10">
+                            MTProto Secure                        </span>
+                        
+                        <div dir="ltr" class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-xs font-mono font-bold bg-orange-500/10 text-orange-400 border-orange-500/20">
+                            <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                            1361 ms                        </div>
+                    </div>
+
+                    <!-- جزییات آدرس سرور -->
+                    <div class="space-y-1 mb-5">
+                        <div class="text-[11px] text-slate-500 font-bold">آدرس سرور میزبان</div>
+                        <div dir="ltr" class="text-base font-bold font-mono text-slate-100 truncate text-right select-all" title="royaclinic.co.uk">
+                            royaclinic.co.uk                        </div>
+                        <div dir="ltr" class="text-xs font-mono text-slate-400 flex items-center justify-end gap-1.5 pt-0.5">
+                            <span class="text-slate-300 font-semibold">4455</span>
+                            <span class="text-slate-500">:پورت</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- دکمه‌های اقدام -->
+                <div class="pt-4 border-t border-slate-800/80 flex items-center gap-2">
+                    <a href="tg://proxy?server=royaclinic.co.uk&amp;port=4455&amp;secret=dd104462821249bd7ac519130220c25d09" 
+                       class="flex-1 flex items-center justify-center gap-1.5 py-2.5 px-3 rounded-xl bg-brand-500/10 hover:bg-brand-500 text-brand-400 hover:text-slate-950 font-bold text-xs transition border border-brand-500/25 active:scale-95">
+                        <span>اتصال به تلگرام</span>
+                        <svg class="w-3.5 h-3.5 rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M14 5l7 7m0 0l-7 7m7-7H3"/></svg>
+                    </a>
+                    
+                    <button class="copy-btn p-2.5 rounded-xl bg-slate-800/80 hover:bg-slate-700 text-slate-300 border border-slate-700/60 transition active:scale-90" title="کپی لینک پروکسی">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
+                    </button>
+
+                    <button class="qr-btn p-2.5 rounded-xl bg-slate-800/80 hover:bg-slate-700 text-slate-300 border border-slate-700/60 transition active:scale-90" title="نمایش بارکد QR">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v1m6 11h2m-6 0h-2v4h2v-4zM6 6h6v6H6V6zm12 0h6v6h-6V6zm-6 12h6v6h-6v-6z"/></svg>
+                    </button>
+                </div>
+            </article>
+                        <article class="proxy-card group flex flex-col justify-between p-5 rounded-2xl bg-surface-card border border-slate-800/80 hover:border-slate-700 transition-all duration-200 hover:shadow-xl hover:shadow-cyan-950/20 relative overflow-hidden backdrop-blur-md is-online"
+                     data-server="whiteblox.org"
+                     data-port="4455"
+                     data-type="mtproto secure"
+                     data-status="online"
+                     data-latency="1387"
+                     data-url="tg://proxy?server=whiteblox.org&amp;port=4455&amp;secret=dd104462821249bd7ac519130220c25d09">
+
+                <div>
+                    <!-- سربرگ کارت -->
+                    <div class="flex items-center justify-between mb-4 gap-2">
+                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-md text-[11px] font-mono font-bold uppercase tracking-wider border text-indigo-400 border-indigo-400/25 bg-indigo-400/10">
+                            MTProto Secure                        </span>
+                        
+                        <div dir="ltr" class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-xs font-mono font-bold bg-orange-500/10 text-orange-400 border-orange-500/20">
+                            <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                            1387 ms                        </div>
+                    </div>
+
+                    <!-- جزییات آدرس سرور -->
+                    <div class="space-y-1 mb-5">
+                        <div class="text-[11px] text-slate-500 font-bold">آدرس سرور میزبان</div>
+                        <div dir="ltr" class="text-base font-bold font-mono text-slate-100 truncate text-right select-all" title="whiteblox.org">
+                            whiteblox.org                        </div>
+                        <div dir="ltr" class="text-xs font-mono text-slate-400 flex items-center justify-end gap-1.5 pt-0.5">
+                            <span class="text-slate-300 font-semibold">4455</span>
+                            <span class="text-slate-500">:پورت</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- دکمه‌های اقدام -->
+                <div class="pt-4 border-t border-slate-800/80 flex items-center gap-2">
+                    <a href="tg://proxy?server=whiteblox.org&amp;port=4455&amp;secret=dd104462821249bd7ac519130220c25d09" 
+                       class="flex-1 flex items-center justify-center gap-1.5 py-2.5 px-3 rounded-xl bg-brand-500/10 hover:bg-brand-500 text-brand-400 hover:text-slate-950 font-bold text-xs transition border border-brand-500/25 active:scale-95">
+                        <span>اتصال به تلگرام</span>
+                        <svg class="w-3.5 h-3.5 rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M14 5l7 7m0 0l-7 7m7-7H3"/></svg>
+                    </a>
+                    
+                    <button class="copy-btn p-2.5 rounded-xl bg-slate-800/80 hover:bg-slate-700 text-slate-300 border border-slate-700/60 transition active:scale-90" title="کپی لینک پروکسی">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
+                    </button>
+
+                    <button class="qr-btn p-2.5 rounded-xl bg-slate-800/80 hover:bg-slate-700 text-slate-300 border border-slate-700/60 transition active:scale-90" title="نمایش بارکد QR">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v1m6 11h2m-6 0h-2v4h2v-4zM6 6h6v6H6V6zm12 0h6v6h-6V6zm-6 12h6v6h-6v-6z"/></svg>
+                    </button>
+                </div>
+            </article>
+                        <article class="proxy-card group flex flex-col justify-between p-5 rounded-2xl bg-surface-card border border-slate-800/80 hover:border-slate-700 transition-all duration-200 hover:shadow-xl hover:shadow-cyan-950/20 relative overflow-hidden backdrop-blur-md is-online"
+                     data-server="royaclinic.beauty"
+                     data-port="4455"
+                     data-type="mtproto secure"
+                     data-status="online"
+                     data-latency="1425"
+                     data-url="tg://proxy?server=royaclinic.beauty&amp;port=4455&amp;secret=dd104462821249bd7ac519130220c25d09">
+
+                <div>
+                    <!-- سربرگ کارت -->
+                    <div class="flex items-center justify-between mb-4 gap-2">
+                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-md text-[11px] font-mono font-bold uppercase tracking-wider border text-indigo-400 border-indigo-400/25 bg-indigo-400/10">
+                            MTProto Secure                        </span>
+                        
+                        <div dir="ltr" class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-xs font-mono font-bold bg-orange-500/10 text-orange-400 border-orange-500/20">
+                            <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                            1425 ms                        </div>
+                    </div>
+
+                    <!-- جزییات آدرس سرور -->
+                    <div class="space-y-1 mb-5">
+                        <div class="text-[11px] text-slate-500 font-bold">آدرس سرور میزبان</div>
+                        <div dir="ltr" class="text-base font-bold font-mono text-slate-100 truncate text-right select-all" title="royaclinic.beauty">
+                            royaclinic.beauty                        </div>
+                        <div dir="ltr" class="text-xs font-mono text-slate-400 flex items-center justify-end gap-1.5 pt-0.5">
+                            <span class="text-slate-300 font-semibold">4455</span>
+                            <span class="text-slate-500">:پورت</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- دکمه‌های اقدام -->
+                <div class="pt-4 border-t border-slate-800/80 flex items-center gap-2">
+                    <a href="tg://proxy?server=royaclinic.beauty&amp;port=4455&amp;secret=dd104462821249bd7ac519130220c25d09" 
+                       class="flex-1 flex items-center justify-center gap-1.5 py-2.5 px-3 rounded-xl bg-brand-500/10 hover:bg-brand-500 text-brand-400 hover:text-slate-950 font-bold text-xs transition border border-brand-500/25 active:scale-95">
+                        <span>اتصال به تلگرام</span>
+                        <svg class="w-3.5 h-3.5 rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M14 5l7 7m0 0l-7 7m7-7H3"/></svg>
+                    </a>
+                    
+                    <button class="copy-btn p-2.5 rounded-xl bg-slate-800/80 hover:bg-slate-700 text-slate-300 border border-slate-700/60 transition active:scale-90" title="کپی لینک پروکسی">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
+                    </button>
+
+                    <button class="qr-btn p-2.5 rounded-xl bg-slate-800/80 hover:bg-slate-700 text-slate-300 border border-slate-700/60 transition active:scale-90" title="نمایش بارکد QR">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v1m6 11h2m-6 0h-2v4h2v-4zM6 6h6v6H6V6zm12 0h6v6h-6V6zm-6 12h6v6h-6v-6z"/></svg>
+                    </button>
+                </div>
+            </article>
+                        <article class="proxy-card group flex flex-col justify-between p-5 rounded-2xl bg-surface-card border border-slate-800/80 hover:border-slate-700 transition-all duration-200 hover:shadow-xl hover:shadow-cyan-950/20 relative overflow-hidden backdrop-blur-md is-online"
+                     data-server="luxuryman.sbs"
+                     data-port="4455"
+                     data-type="mtproto secure"
+                     data-status="online"
+                     data-latency="1662"
+                     data-url="tg://proxy?server=luxuryman.sbs&amp;port=4455&amp;secret=dd104462821249bd7ac519130220c25d09">
+
+                <div>
+                    <!-- سربرگ کارت -->
+                    <div class="flex items-center justify-between mb-4 gap-2">
+                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-md text-[11px] font-mono font-bold uppercase tracking-wider border text-indigo-400 border-indigo-400/25 bg-indigo-400/10">
+                            MTProto Secure                        </span>
+                        
+                        <div dir="ltr" class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-xs font-mono font-bold bg-orange-500/10 text-orange-400 border-orange-500/20">
+                            <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                            1662 ms                        </div>
+                    </div>
+
+                    <!-- جزییات آدرس سرور -->
+                    <div class="space-y-1 mb-5">
+                        <div class="text-[11px] text-slate-500 font-bold">آدرس سرور میزبان</div>
+                        <div dir="ltr" class="text-base font-bold font-mono text-slate-100 truncate text-right select-all" title="luxuryman.sbs">
+                            luxuryman.sbs                        </div>
+                        <div dir="ltr" class="text-xs font-mono text-slate-400 flex items-center justify-end gap-1.5 pt-0.5">
+                            <span class="text-slate-300 font-semibold">4455</span>
+                            <span class="text-slate-500">:پورت</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- دکمه‌های اقدام -->
+                <div class="pt-4 border-t border-slate-800/80 flex items-center gap-2">
+                    <a href="tg://proxy?server=luxuryman.sbs&amp;port=4455&amp;secret=dd104462821249bd7ac519130220c25d09" 
+                       class="flex-1 flex items-center justify-center gap-1.5 py-2.5 px-3 rounded-xl bg-brand-500/10 hover:bg-brand-500 text-brand-400 hover:text-slate-950 font-bold text-xs transition border border-brand-500/25 active:scale-95">
+                        <span>اتصال به تلگرام</span>
+                        <svg class="w-3.5 h-3.5 rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M14 5l7 7m0 0l-7 7m7-7H3"/></svg>
+                    </a>
+                    
+                    <button class="copy-btn p-2.5 rounded-xl bg-slate-800/80 hover:bg-slate-700 text-slate-300 border border-slate-700/60 transition active:scale-90" title="کپی لینک پروکسی">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
+                    </button>
+
+                    <button class="qr-btn p-2.5 rounded-xl bg-slate-800/80 hover:bg-slate-700 text-slate-300 border border-slate-700/60 transition active:scale-90" title="نمایش بارکد QR">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v1m6 11h2m-6 0h-2v4h2v-4zM6 6h6v6H6V6zm12 0h6v6h-6V6zm-6 12h6v6h-6v-6z"/></svg>
+                    </button>
+                </div>
+            </article>
+                        <article class="proxy-card group flex flex-col justify-between p-5 rounded-2xl bg-surface-card border border-slate-800/80 hover:border-slate-700 transition-all duration-200 hover:shadow-xl hover:shadow-cyan-950/20 relative overflow-hidden backdrop-blur-md is-online"
+                     data-server="irluxcars.site"
+                     data-port="4455"
+                     data-type="mtproto secure"
+                     data-status="online"
+                     data-latency="1810"
+                     data-url="tg://proxy?server=irluxcars.site&amp;port=4455&amp;secret=dd104462821249bd7ac519130220c25d09">
+
+                <div>
+                    <!-- سربرگ کارت -->
+                    <div class="flex items-center justify-between mb-4 gap-2">
+                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-md text-[11px] font-mono font-bold uppercase tracking-wider border text-indigo-400 border-indigo-400/25 bg-indigo-400/10">
+                            MTProto Secure                        </span>
+                        
+                        <div dir="ltr" class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-xs font-mono font-bold bg-orange-500/10 text-orange-400 border-orange-500/20">
+                            <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                            1810 ms                        </div>
+                    </div>
+
+                    <!-- جزییات آدرس سرور -->
+                    <div class="space-y-1 mb-5">
+                        <div class="text-[11px] text-slate-500 font-bold">آدرس سرور میزبان</div>
+                        <div dir="ltr" class="text-base font-bold font-mono text-slate-100 truncate text-right select-all" title="irluxcars.site">
+                            irluxcars.site                        </div>
+                        <div dir="ltr" class="text-xs font-mono text-slate-400 flex items-center justify-end gap-1.5 pt-0.5">
+                            <span class="text-slate-300 font-semibold">4455</span>
+                            <span class="text-slate-500">:پورت</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- دکمه‌های اقدام -->
+                <div class="pt-4 border-t border-slate-800/80 flex items-center gap-2">
+                    <a href="tg://proxy?server=irluxcars.site&amp;port=4455&amp;secret=dd104462821249bd7ac519130220c25d09" 
+                       class="flex-1 flex items-center justify-center gap-1.5 py-2.5 px-3 rounded-xl bg-brand-500/10 hover:bg-brand-500 text-brand-400 hover:text-slate-950 font-bold text-xs transition border border-brand-500/25 active:scale-95">
+                        <span>اتصال به تلگرام</span>
+                        <svg class="w-3.5 h-3.5 rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M14 5l7 7m0 0l-7 7m7-7H3"/></svg>
+                    </a>
+                    
+                    <button class="copy-btn p-2.5 rounded-xl bg-slate-800/80 hover:bg-slate-700 text-slate-300 border border-slate-700/60 transition active:scale-90" title="کپی لینک پروکسی">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
+                    </button>
+
+                    <button class="qr-btn p-2.5 rounded-xl bg-slate-800/80 hover:bg-slate-700 text-slate-300 border border-slate-700/60 transition active:scale-90" title="نمایش بارکد QR">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v1m6 11h2m-6 0h-2v4h2v-4zM6 6h6v6H6V6zm12 0h6v6h-6V6zm-6 12h6v6h-6v-6z"/></svg>
+                    </button>
+                </div>
+            </article>
+                        <article class="proxy-card group flex flex-col justify-between p-5 rounded-2xl bg-surface-card border border-slate-800/80 hover:border-slate-700 transition-all duration-200 hover:shadow-xl hover:shadow-cyan-950/20 relative overflow-hidden backdrop-blur-md is-online"
+                     data-server="math-test.bypased.info"
+                     data-port="8443"
+                     data-type="mtproto"
+                     data-status="online"
+                     data-latency="1831"
+                     data-url="tg://proxy?server=math-test.bypased.info&amp;port=8443&amp;secret=1603010200010001fc030386e24c3add">
+
+                <div>
+                    <!-- سربرگ کارت -->
+                    <div class="flex items-center justify-between mb-4 gap-2">
+                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-md text-[11px] font-mono font-bold uppercase tracking-wider border text-slate-400 border-slate-700 bg-slate-800/50">
+                            MTProto                        </span>
+                        
+                        <div dir="ltr" class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-xs font-mono font-bold bg-orange-500/10 text-orange-400 border-orange-500/20">
+                            <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                            1831 ms                        </div>
+                    </div>
+
+                    <!-- جزییات آدرس سرور -->
+                    <div class="space-y-1 mb-5">
+                        <div class="text-[11px] text-slate-500 font-bold">آدرس سرور میزبان</div>
+                        <div dir="ltr" class="text-base font-bold font-mono text-slate-100 truncate text-right select-all" title="math-test.bypased.info">
+                            math-test.bypased.info                        </div>
+                        <div dir="ltr" class="text-xs font-mono text-slate-400 flex items-center justify-end gap-1.5 pt-0.5">
+                            <span class="text-slate-300 font-semibold">8443</span>
+                            <span class="text-slate-500">:پورت</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- دکمه‌های اقدام -->
+                <div class="pt-4 border-t border-slate-800/80 flex items-center gap-2">
+                    <a href="tg://proxy?server=math-test.bypased.info&amp;port=8443&amp;secret=1603010200010001fc030386e24c3add" 
+                       class="flex-1 flex items-center justify-center gap-1.5 py-2.5 px-3 rounded-xl bg-brand-500/10 hover:bg-brand-500 text-brand-400 hover:text-slate-950 font-bold text-xs transition border border-brand-500/25 active:scale-95">
+                        <span>اتصال به تلگرام</span>
+                        <svg class="w-3.5 h-3.5 rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M14 5l7 7m0 0l-7 7m7-7H3"/></svg>
+                    </a>
+                    
+                    <button class="copy-btn p-2.5 rounded-xl bg-slate-800/80 hover:bg-slate-700 text-slate-300 border border-slate-700/60 transition active:scale-90" title="کپی لینک پروکسی">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
+                    </button>
+
+                    <button class="qr-btn p-2.5 rounded-xl bg-slate-800/80 hover:bg-slate-700 text-slate-300 border border-slate-700/60 transition active:scale-90" title="نمایش بارکد QR">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v1m6 11h2m-6 0h-2v4h2v-4zM6 6h6v6H6V6zm12 0h6v6h-6V6zm-6 12h6v6h-6v-6z"/></svg>
+                    </button>
+                </div>
+            </article>
+                        <article class="proxy-card group flex flex-col justify-between p-5 rounded-2xl bg-surface-card border border-slate-800/80 hover:border-slate-700 transition-all duration-200 hover:shadow-xl hover:shadow-cyan-950/20 relative overflow-hidden backdrop-blur-md is-online"
+                     data-server="93.113.230.250"
+                     data-port="443"
+                     data-type="mtproto secure"
+                     data-status="online"
+                     data-latency="1831"
+                     data-url="tg://proxy?server=93.113.230.250&amp;port=443&amp;secret=dd6a67ae4c2d173b4168745435cb313a39">
+
+                <div>
+                    <!-- سربرگ کارت -->
+                    <div class="flex items-center justify-between mb-4 gap-2">
+                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-md text-[11px] font-mono font-bold uppercase tracking-wider border text-indigo-400 border-indigo-400/25 bg-indigo-400/10">
+                            MTProto Secure                        </span>
+                        
+                        <div dir="ltr" class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-xs font-mono font-bold bg-orange-500/10 text-orange-400 border-orange-500/20">
+                            <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                            1831 ms                        </div>
+                    </div>
+
+                    <!-- جزییات آدرس سرور -->
+                    <div class="space-y-1 mb-5">
+                        <div class="text-[11px] text-slate-500 font-bold">آدرس سرور میزبان</div>
+                        <div dir="ltr" class="text-base font-bold font-mono text-slate-100 truncate text-right select-all" title="93.113.230.250">
+                            93.113.230.250                        </div>
+                        <div dir="ltr" class="text-xs font-mono text-slate-400 flex items-center justify-end gap-1.5 pt-0.5">
+                            <span class="text-slate-300 font-semibold">443</span>
+                            <span class="text-slate-500">:پورت</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- دکمه‌های اقدام -->
+                <div class="pt-4 border-t border-slate-800/80 flex items-center gap-2">
+                    <a href="tg://proxy?server=93.113.230.250&amp;port=443&amp;secret=dd6a67ae4c2d173b4168745435cb313a39" 
+                       class="flex-1 flex items-center justify-center gap-1.5 py-2.5 px-3 rounded-xl bg-brand-500/10 hover:bg-brand-500 text-brand-400 hover:text-slate-950 font-bold text-xs transition border border-brand-500/25 active:scale-95">
+                        <span>اتصال به تلگرام</span>
+                        <svg class="w-3.5 h-3.5 rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M14 5l7 7m0 0l-7 7m7-7H3"/></svg>
+                    </a>
+                    
+                    <button class="copy-btn p-2.5 rounded-xl bg-slate-800/80 hover:bg-slate-700 text-slate-300 border border-slate-700/60 transition active:scale-90" title="کپی لینک پروکسی">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
+                    </button>
+
+                    <button class="qr-btn p-2.5 rounded-xl bg-slate-800/80 hover:bg-slate-700 text-slate-300 border border-slate-700/60 transition active:scale-90" title="نمایش بارکد QR">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v1m6 11h2m-6 0h-2v4h2v-4zM6 6h6v6H6V6zm12 0h6v6h-6V6zm-6 12h6v6h-6v-6z"/></svg>
+                    </button>
+                </div>
+            </article>
+                        <article class="proxy-card group flex flex-col justify-between p-5 rounded-2xl bg-surface-card border border-slate-800/80 hover:border-slate-700 transition-all duration-200 hover:shadow-xl hover:shadow-cyan-950/20 relative overflow-hidden backdrop-blur-md is-online"
+                     data-server="93.113.230.221"
+                     data-port="443"
+                     data-type="mtproto secure"
+                     data-status="online"
+                     data-latency="1831"
+                     data-url="tg://proxy?server=93.113.230.221&amp;port=443&amp;secret=dd6a67ae4c2d173b4168745435cb313a39">
+
+                <div>
+                    <!-- سربرگ کارت -->
+                    <div class="flex items-center justify-between mb-4 gap-2">
+                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-md text-[11px] font-mono font-bold uppercase tracking-wider border text-indigo-400 border-indigo-400/25 bg-indigo-400/10">
+                            MTProto Secure                        </span>
+                        
+                        <div dir="ltr" class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-xs font-mono font-bold bg-orange-500/10 text-orange-400 border-orange-500/20">
+                            <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                            1831 ms                        </div>
+                    </div>
+
+                    <!-- جزییات آدرس سرور -->
+                    <div class="space-y-1 mb-5">
+                        <div class="text-[11px] text-slate-500 font-bold">آدرس سرور میزبان</div>
+                        <div dir="ltr" class="text-base font-bold font-mono text-slate-100 truncate text-right select-all" title="93.113.230.221">
+                            93.113.230.221                        </div>
+                        <div dir="ltr" class="text-xs font-mono text-slate-400 flex items-center justify-end gap-1.5 pt-0.5">
+                            <span class="text-slate-300 font-semibold">443</span>
+                            <span class="text-slate-500">:پورت</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- دکمه‌های اقدام -->
+                <div class="pt-4 border-t border-slate-800/80 flex items-center gap-2">
+                    <a href="tg://proxy?server=93.113.230.221&amp;port=443&amp;secret=dd6a67ae4c2d173b4168745435cb313a39" 
+                       class="flex-1 flex items-center justify-center gap-1.5 py-2.5 px-3 rounded-xl bg-brand-500/10 hover:bg-brand-500 text-brand-400 hover:text-slate-950 font-bold text-xs transition border border-brand-500/25 active:scale-95">
+                        <span>اتصال به تلگرام</span>
+                        <svg class="w-3.5 h-3.5 rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M14 5l7 7m0 0l-7 7m7-7H3"/></svg>
+                    </a>
+                    
+                    <button class="copy-btn p-2.5 rounded-xl bg-slate-800/80 hover:bg-slate-700 text-slate-300 border border-slate-700/60 transition active:scale-90" title="کپی لینک پروکسی">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
+                    </button>
+
+                    <button class="qr-btn p-2.5 rounded-xl bg-slate-800/80 hover:bg-slate-700 text-slate-300 border border-slate-700/60 transition active:scale-90" title="نمایش بارکد QR">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v1m6 11h2m-6 0h-2v4h2v-4zM6 6h6v6H6V6zm12 0h6v6h-6V6zm-6 12h6v6h-6v-6z"/></svg>
+                    </button>
+                </div>
+            </article>
+                        <article class="proxy-card group flex flex-col justify-between p-5 rounded-2xl bg-surface-card border border-slate-800/80 hover:border-slate-700 transition-all duration-200 hover:shadow-xl hover:shadow-cyan-950/20 relative overflow-hidden backdrop-blur-md is-online"
+                     data-server="pintrest-cool.browncolor.info"
+                     data-port="8443"
+                     data-type="mtproto"
+                     data-status="online"
+                     data-latency="2004"
+                     data-url="tg://proxy?server=pintrest-cool.browncolor.info&amp;port=8443&amp;secret=1603010200010001fc030386e24c3add">
+
+                <div>
+                    <!-- سربرگ کارت -->
+                    <div class="flex items-center justify-between mb-4 gap-2">
+                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-md text-[11px] font-mono font-bold uppercase tracking-wider border text-slate-400 border-slate-700 bg-slate-800/50">
+                            MTProto                        </span>
+                        
+                        <div dir="ltr" class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-xs font-mono font-bold bg-orange-500/10 text-orange-400 border-orange-500/20">
+                            <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                            2004 ms                        </div>
+                    </div>
+
+                    <!-- جزییات آدرس سرور -->
+                    <div class="space-y-1 mb-5">
+                        <div class="text-[11px] text-slate-500 font-bold">آدرس سرور میزبان</div>
+                        <div dir="ltr" class="text-base font-bold font-mono text-slate-100 truncate text-right select-all" title="pintrest-cool.browncolor.info">
+                            pintrest-cool.browncolor.info                        </div>
+                        <div dir="ltr" class="text-xs font-mono text-slate-400 flex items-center justify-end gap-1.5 pt-0.5">
+                            <span class="text-slate-300 font-semibold">8443</span>
+                            <span class="text-slate-500">:پورت</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- دکمه‌های اقدام -->
+                <div class="pt-4 border-t border-slate-800/80 flex items-center gap-2">
+                    <a href="tg://proxy?server=pintrest-cool.browncolor.info&amp;port=8443&amp;secret=1603010200010001fc030386e24c3add" 
+                       class="flex-1 flex items-center justify-center gap-1.5 py-2.5 px-3 rounded-xl bg-brand-500/10 hover:bg-brand-500 text-brand-400 hover:text-slate-950 font-bold text-xs transition border border-brand-500/25 active:scale-95">
+                        <span>اتصال به تلگرام</span>
+                        <svg class="w-3.5 h-3.5 rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M14 5l7 7m0 0l-7 7m7-7H3"/></svg>
+                    </a>
+                    
+                    <button class="copy-btn p-2.5 rounded-xl bg-slate-800/80 hover:bg-slate-700 text-slate-300 border border-slate-700/60 transition active:scale-90" title="کپی لینک پروکسی">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
+                    </button>
+
+                    <button class="qr-btn p-2.5 rounded-xl bg-slate-800/80 hover:bg-slate-700 text-slate-300 border border-slate-700/60 transition active:scale-90" title="نمایش بارکد QR">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v1m6 11h2m-6 0h-2v4h2v-4zM6 6h6v6H6V6zm12 0h6v6h-6V6zm-6 12h6v6h-6v-6z"/></svg>
+                    </button>
+                </div>
+            </article>
+                        <article class="proxy-card group flex flex-col justify-between p-5 rounded-2xl bg-surface-card border border-slate-800/80 hover:border-slate-700 transition-all duration-200 hover:shadow-xl hover:shadow-cyan-950/20 relative overflow-hidden backdrop-blur-md is-online"
+                     data-server="vizhzhzhzhzh.bypased.info"
+                     data-port="8443"
+                     data-type="mtproto"
+                     data-status="online"
+                     data-latency="2143"
+                     data-url="tg://proxy?server=vizhzhzhzhzh.bypased.info&amp;port=8443&amp;secret=1603010200010001fc030386e24c3add">
+
+                <div>
+                    <!-- سربرگ کارت -->
+                    <div class="flex items-center justify-between mb-4 gap-2">
+                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-md text-[11px] font-mono font-bold uppercase tracking-wider border text-slate-400 border-slate-700 bg-slate-800/50">
+                            MTProto                        </span>
+                        
+                        <div dir="ltr" class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-xs font-mono font-bold bg-orange-500/10 text-orange-400 border-orange-500/20">
+                            <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                            2143 ms                        </div>
+                    </div>
+
+                    <!-- جزییات آدرس سرور -->
+                    <div class="space-y-1 mb-5">
+                        <div class="text-[11px] text-slate-500 font-bold">آدرس سرور میزبان</div>
+                        <div dir="ltr" class="text-base font-bold font-mono text-slate-100 truncate text-right select-all" title="vizhzhzhzhzh.bypased.info">
+                            vizhzhzhzhzh.bypased.info                        </div>
+                        <div dir="ltr" class="text-xs font-mono text-slate-400 flex items-center justify-end gap-1.5 pt-0.5">
+                            <span class="text-slate-300 font-semibold">8443</span>
+                            <span class="text-slate-500">:پورت</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- دکمه‌های اقدام -->
+                <div class="pt-4 border-t border-slate-800/80 flex items-center gap-2">
+                    <a href="tg://proxy?server=vizhzhzhzhzh.bypased.info&amp;port=8443&amp;secret=1603010200010001fc030386e24c3add" 
+                       class="flex-1 flex items-center justify-center gap-1.5 py-2.5 px-3 rounded-xl bg-brand-500/10 hover:bg-brand-500 text-brand-400 hover:text-slate-950 font-bold text-xs transition border border-brand-500/25 active:scale-95">
+                        <span>اتصال به تلگرام</span>
+                        <svg class="w-3.5 h-3.5 rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M14 5l7 7m0 0l-7 7m7-7H3"/></svg>
+                    </a>
+                    
+                    <button class="copy-btn p-2.5 rounded-xl bg-slate-800/80 hover:bg-slate-700 text-slate-300 border border-slate-700/60 transition active:scale-90" title="کپی لینک پروکسی">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
+                    </button>
+
+                    <button class="qr-btn p-2.5 rounded-xl bg-slate-800/80 hover:bg-slate-700 text-slate-300 border border-slate-700/60 transition active:scale-90" title="نمایش بارکد QR">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v1m6 11h2m-6 0h-2v4h2v-4zM6 6h6v6H6V6zm12 0h6v6h-6V6zm-6 12h6v6h-6v-6z"/></svg>
+                    </button>
+                </div>
+            </article>
+                        <article class="proxy-card group flex flex-col justify-between p-5 rounded-2xl bg-surface-card border border-slate-800/80 hover:border-slate-700 transition-all duration-200 hover:shadow-xl hover:shadow-cyan-950/20 relative overflow-hidden backdrop-blur-md is-online"
+                     data-server="becarefull.bypased.info"
+                     data-port="8443"
+                     data-type="mtproto"
+                     data-status="online"
+                     data-latency="2437"
+                     data-url="tg://proxy?server=becarefull.bypased.info&amp;port=8443&amp;secret=1603010200010001fc030386e24c3add">
+
+                <div>
+                    <!-- سربرگ کارت -->
+                    <div class="flex items-center justify-between mb-4 gap-2">
+                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-md text-[11px] font-mono font-bold uppercase tracking-wider border text-slate-400 border-slate-700 bg-slate-800/50">
+                            MTProto                        </span>
+                        
+                        <div dir="ltr" class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-xs font-mono font-bold bg-orange-500/10 text-orange-400 border-orange-500/20">
+                            <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                            2437 ms                        </div>
+                    </div>
+
+                    <!-- جزییات آدرس سرور -->
+                    <div class="space-y-1 mb-5">
+                        <div class="text-[11px] text-slate-500 font-bold">آدرس سرور میزبان</div>
+                        <div dir="ltr" class="text-base font-bold font-mono text-slate-100 truncate text-right select-all" title="becarefull.bypased.info">
+                            becarefull.bypased.info                        </div>
+                        <div dir="ltr" class="text-xs font-mono text-slate-400 flex items-center justify-end gap-1.5 pt-0.5">
+                            <span class="text-slate-300 font-semibold">8443</span>
+                            <span class="text-slate-500">:پورت</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- دکمه‌های اقدام -->
+                <div class="pt-4 border-t border-slate-800/80 flex items-center gap-2">
+                    <a href="tg://proxy?server=becarefull.bypased.info&amp;port=8443&amp;secret=1603010200010001fc030386e24c3add" 
+                       class="flex-1 flex items-center justify-center gap-1.5 py-2.5 px-3 rounded-xl bg-brand-500/10 hover:bg-brand-500 text-brand-400 hover:text-slate-950 font-bold text-xs transition border border-brand-500/25 active:scale-95">
+                        <span>اتصال به تلگرام</span>
+                        <svg class="w-3.5 h-3.5 rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M14 5l7 7m0 0l-7 7m7-7H3"/></svg>
+                    </a>
+                    
+                    <button class="copy-btn p-2.5 rounded-xl bg-slate-800/80 hover:bg-slate-700 text-slate-300 border border-slate-700/60 transition active:scale-90" title="کپی لینک پروکسی">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
+                    </button>
+
+                    <button class="qr-btn p-2.5 rounded-xl bg-slate-800/80 hover:bg-slate-700 text-slate-300 border border-slate-700/60 transition active:scale-90" title="نمایش بارکد QR">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v1m6 11h2m-6 0h-2v4h2v-4zM6 6h6v6H6V6zm12 0h6v6h-6V6zm-6 12h6v6h-6v-6z"/></svg>
+                    </button>
+                </div>
+            </article>
+                        <article class="proxy-card group flex flex-col justify-between p-5 rounded-2xl bg-surface-card border border-slate-800/80 hover:border-slate-700 transition-all duration-200 hover:shadow-xl hover:shadow-cyan-950/20 relative overflow-hidden backdrop-blur-md is-online"
+                     data-server="65.109.191.104"
+                     data-port="8443"
+                     data-type="mtproto secure"
+                     data-status="online"
+                     data-latency="2607"
+                     data-url="tg://proxy?server=65.109.191.104&amp;port=8443&amp;secret=dd79e344818749bd7ac519130220c25d09">
+
+                <div>
+                    <!-- سربرگ کارت -->
+                    <div class="flex items-center justify-between mb-4 gap-2">
+                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-md text-[11px] font-mono font-bold uppercase tracking-wider border text-indigo-400 border-indigo-400/25 bg-indigo-400/10">
+                            MTProto Secure                        </span>
+                        
+                        <div dir="ltr" class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-xs font-mono font-bold bg-orange-500/10 text-orange-400 border-orange-500/20">
+                            <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                            2607 ms                        </div>
+                    </div>
+
+                    <!-- جزییات آدرس سرور -->
+                    <div class="space-y-1 mb-5">
+                        <div class="text-[11px] text-slate-500 font-bold">آدرس سرور میزبان</div>
+                        <div dir="ltr" class="text-base font-bold font-mono text-slate-100 truncate text-right select-all" title="65.109.191.104">
+                            65.109.191.104                        </div>
+                        <div dir="ltr" class="text-xs font-mono text-slate-400 flex items-center justify-end gap-1.5 pt-0.5">
+                            <span class="text-slate-300 font-semibold">8443</span>
+                            <span class="text-slate-500">:پورت</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- دکمه‌های اقدام -->
+                <div class="pt-4 border-t border-slate-800/80 flex items-center gap-2">
+                    <a href="tg://proxy?server=65.109.191.104&amp;port=8443&amp;secret=dd79e344818749bd7ac519130220c25d09" 
+                       class="flex-1 flex items-center justify-center gap-1.5 py-2.5 px-3 rounded-xl bg-brand-500/10 hover:bg-brand-500 text-brand-400 hover:text-slate-950 font-bold text-xs transition border border-brand-500/25 active:scale-95">
+                        <span>اتصال به تلگرام</span>
+                        <svg class="w-3.5 h-3.5 rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M14 5l7 7m0 0l-7 7m7-7H3"/></svg>
+                    </a>
+                    
+                    <button class="copy-btn p-2.5 rounded-xl bg-slate-800/80 hover:bg-slate-700 text-slate-300 border border-slate-700/60 transition active:scale-90" title="کپی لینک پروکسی">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
+                    </button>
+
+                    <button class="qr-btn p-2.5 rounded-xl bg-slate-800/80 hover:bg-slate-700 text-slate-300 border border-slate-700/60 transition active:scale-90" title="نمایش بارکد QR">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v1m6 11h2m-6 0h-2v4h2v-4zM6 6h6v6H6V6zm12 0h6v6h-6V6zm-6 12h6v6h-6v-6z"/></svg>
+                    </button>
+                </div>
+            </article>
+                        <article class="proxy-card group flex flex-col justify-between p-5 rounded-2xl bg-surface-card border border-slate-800/80 hover:border-slate-700 transition-all duration-200 hover:shadow-xl hover:shadow-cyan-950/20 relative overflow-hidden backdrop-blur-md is-online"
+                     data-server="65.109.176.207"
+                     data-port="8443"
+                     data-type="mtproto secure"
+                     data-status="online"
+                     data-latency="2607"
+                     data-url="tg://proxy?server=65.109.176.207&amp;port=8443&amp;secret=dd79e344818749bd7ac519130220c25d09">
+
+                <div>
+                    <!-- سربرگ کارت -->
+                    <div class="flex items-center justify-between mb-4 gap-2">
+                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-md text-[11px] font-mono font-bold uppercase tracking-wider border text-indigo-400 border-indigo-400/25 bg-indigo-400/10">
+                            MTProto Secure                        </span>
+                        
+                        <div dir="ltr" class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-xs font-mono font-bold bg-orange-500/10 text-orange-400 border-orange-500/20">
+                            <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                            2607 ms                        </div>
+                    </div>
+
+                    <!-- جزییات آدرس سرور -->
+                    <div class="space-y-1 mb-5">
+                        <div class="text-[11px] text-slate-500 font-bold">آدرس سرور میزبان</div>
+                        <div dir="ltr" class="text-base font-bold font-mono text-slate-100 truncate text-right select-all" title="65.109.176.207">
+                            65.109.176.207                        </div>
+                        <div dir="ltr" class="text-xs font-mono text-slate-400 flex items-center justify-end gap-1.5 pt-0.5">
+                            <span class="text-slate-300 font-semibold">8443</span>
+                            <span class="text-slate-500">:پورت</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- دکمه‌های اقدام -->
+                <div class="pt-4 border-t border-slate-800/80 flex items-center gap-2">
+                    <a href="tg://proxy?server=65.109.176.207&amp;port=8443&amp;secret=dd79e344818749bd7ac519130220c25d09" 
+                       class="flex-1 flex items-center justify-center gap-1.5 py-2.5 px-3 rounded-xl bg-brand-500/10 hover:bg-brand-500 text-brand-400 hover:text-slate-950 font-bold text-xs transition border border-brand-500/25 active:scale-95">
+                        <span>اتصال به تلگرام</span>
+                        <svg class="w-3.5 h-3.5 rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M14 5l7 7m0 0l-7 7m7-7H3"/></svg>
+                    </a>
+                    
+                    <button class="copy-btn p-2.5 rounded-xl bg-slate-800/80 hover:bg-slate-700 text-slate-300 border border-slate-700/60 transition active:scale-90" title="کپی لینک پروکسی">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
+                    </button>
+
+                    <button class="qr-btn p-2.5 rounded-xl bg-slate-800/80 hover:bg-slate-700 text-slate-300 border border-slate-700/60 transition active:scale-90" title="نمایش بارکد QR">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v1m6 11h2m-6 0h-2v4h2v-4zM6 6h6v6H6V6zm12 0h6v6h-6V6zm-6 12h6v6h-6v-6z"/></svg>
+                    </button>
+                </div>
+            </article>
+                        <article class="proxy-card group flex flex-col justify-between p-5 rounded-2xl bg-surface-card border border-slate-800/80 hover:border-slate-700 transition-all duration-200 hover:shadow-xl hover:shadow-cyan-950/20 relative overflow-hidden backdrop-blur-md is-online"
+                     data-server="65.109.181.71"
+                     data-port="8443"
+                     data-type="mtproto secure"
+                     data-status="online"
+                     data-latency="2607"
+                     data-url="tg://proxy?server=65.109.181.71&amp;port=8443&amp;secret=dd79e344818749bd7ac519130220c25d09">
+
+                <div>
+                    <!-- سربرگ کارت -->
+                    <div class="flex items-center justify-between mb-4 gap-2">
+                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-md text-[11px] font-mono font-bold uppercase tracking-wider border text-indigo-400 border-indigo-400/25 bg-indigo-400/10">
+                            MTProto Secure                        </span>
+                        
+                        <div dir="ltr" class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-xs font-mono font-bold bg-orange-500/10 text-orange-400 border-orange-500/20">
+                            <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                            2607 ms                        </div>
+                    </div>
+
+                    <!-- جزییات آدرس سرور -->
+                    <div class="space-y-1 mb-5">
+                        <div class="text-[11px] text-slate-500 font-bold">آدرس سرور میزبان</div>
+                        <div dir="ltr" class="text-base font-bold font-mono text-slate-100 truncate text-right select-all" title="65.109.181.71">
+                            65.109.181.71                        </div>
+                        <div dir="ltr" class="text-xs font-mono text-slate-400 flex items-center justify-end gap-1.5 pt-0.5">
+                            <span class="text-slate-300 font-semibold">8443</span>
+                            <span class="text-slate-500">:پورت</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- دکمه‌های اقدام -->
+                <div class="pt-4 border-t border-slate-800/80 flex items-center gap-2">
+                    <a href="tg://proxy?server=65.109.181.71&amp;port=8443&amp;secret=dd79e344818749bd7ac519130220c25d09" 
+                       class="flex-1 flex items-center justify-center gap-1.5 py-2.5 px-3 rounded-xl bg-brand-500/10 hover:bg-brand-500 text-brand-400 hover:text-slate-950 font-bold text-xs transition border border-brand-500/25 active:scale-95">
+                        <span>اتصال به تلگرام</span>
+                        <svg class="w-3.5 h-3.5 rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M14 5l7 7m0 0l-7 7m7-7H3"/></svg>
+                    </a>
+                    
+                    <button class="copy-btn p-2.5 rounded-xl bg-slate-800/80 hover:bg-slate-700 text-slate-300 border border-slate-700/60 transition active:scale-90" title="کپی لینک پروکسی">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
+                    </button>
+
+                    <button class="qr-btn p-2.5 rounded-xl bg-slate-800/80 hover:bg-slate-700 text-slate-300 border border-slate-700/60 transition active:scale-90" title="نمایش بارکد QR">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v1m6 11h2m-6 0h-2v4h2v-4zM6 6h6v6H6V6zm12 0h6v6h-6V6zm-6 12h6v6h-6v-6z"/></svg>
+                    </button>
+                </div>
+            </article>
+                        <article class="proxy-card group flex flex-col justify-between p-5 rounded-2xl bg-surface-card border border-slate-800/80 hover:border-slate-700 transition-all duration-200 hover:shadow-xl hover:shadow-cyan-950/20 relative overflow-hidden backdrop-blur-md is-online"
+                     data-server="noway.iraj.trsr57d.co.uk"
+                     data-port="8443"
+                     data-type="mtproto secure"
+                     data-status="online"
+                     data-latency="2637"
+                     data-url="tg://proxy?server=noway.iraj.trsr57d.co.uk&amp;port=8443&amp;secret=dd104462821249bd7ac519130220c25d09">
+
+                <div>
+                    <!-- سربرگ کارت -->
+                    <div class="flex items-center justify-between mb-4 gap-2">
+                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-md text-[11px] font-mono font-bold uppercase tracking-wider border text-indigo-400 border-indigo-400/25 bg-indigo-400/10">
+                            MTProto Secure                        </span>
+                        
+                        <div dir="ltr" class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-xs font-mono font-bold bg-orange-500/10 text-orange-400 border-orange-500/20">
+                            <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                            2637 ms                        </div>
+                    </div>
+
+                    <!-- جزییات آدرس سرور -->
+                    <div class="space-y-1 mb-5">
+                        <div class="text-[11px] text-slate-500 font-bold">آدرس سرور میزبان</div>
+                        <div dir="ltr" class="text-base font-bold font-mono text-slate-100 truncate text-right select-all" title="noway.iraj.trsr57d.co.uk">
+                            noway.iraj.trsr57d.co.uk                        </div>
+                        <div dir="ltr" class="text-xs font-mono text-slate-400 flex items-center justify-end gap-1.5 pt-0.5">
+                            <span class="text-slate-300 font-semibold">8443</span>
+                            <span class="text-slate-500">:پورت</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- دکمه‌های اقدام -->
+                <div class="pt-4 border-t border-slate-800/80 flex items-center gap-2">
+                    <a href="tg://proxy?server=noway.iraj.trsr57d.co.uk&amp;port=8443&amp;secret=dd104462821249bd7ac519130220c25d09" 
+                       class="flex-1 flex items-center justify-center gap-1.5 py-2.5 px-3 rounded-xl bg-brand-500/10 hover:bg-brand-500 text-brand-400 hover:text-slate-950 font-bold text-xs transition border border-brand-500/25 active:scale-95">
+                        <span>اتصال به تلگرام</span>
+                        <svg class="w-3.5 h-3.5 rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M14 5l7 7m0 0l-7 7m7-7H3"/></svg>
+                    </a>
+                    
+                    <button class="copy-btn p-2.5 rounded-xl bg-slate-800/80 hover:bg-slate-700 text-slate-300 border border-slate-700/60 transition active:scale-90" title="کپی لینک پروکسی">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
+                    </button>
+
+                    <button class="qr-btn p-2.5 rounded-xl bg-slate-800/80 hover:bg-slate-700 text-slate-300 border border-slate-700/60 transition active:scale-90" title="نمایش بارکد QR">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v1m6 11h2m-6 0h-2v4h2v-4zM6 6h6v6H6V6zm12 0h6v6h-6V6zm-6 12h6v6h-6v-6z"/></svg>
+                    </button>
+                </div>
+            </article>
+                        <article class="proxy-card group flex flex-col justify-between p-5 rounded-2xl bg-surface-card border border-slate-800/80 hover:border-slate-700 transition-all duration-200 hover:shadow-xl hover:shadow-cyan-950/20 relative overflow-hidden backdrop-blur-md is-online"
+                     data-server="ok.iraj.trsr57d.co.uk"
+                     data-port="8443"
+                     data-type="mtproto secure"
+                     data-status="online"
+                     data-latency="2876"
+                     data-url="tg://proxy?server=ok.iraj.trsr57d.co.uk&amp;port=8443&amp;secret=dd104462821249bd7ac519130220c25d09">
+
+                <div>
+                    <!-- سربرگ کارت -->
+                    <div class="flex items-center justify-between mb-4 gap-2">
+                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-md text-[11px] font-mono font-bold uppercase tracking-wider border text-indigo-400 border-indigo-400/25 bg-indigo-400/10">
+                            MTProto Secure                        </span>
+                        
+                        <div dir="ltr" class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-xs font-mono font-bold bg-orange-500/10 text-orange-400 border-orange-500/20">
+                            <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                            2876 ms                        </div>
+                    </div>
+
+                    <!-- جزییات آدرس سرور -->
+                    <div class="space-y-1 mb-5">
+                        <div class="text-[11px] text-slate-500 font-bold">آدرس سرور میزبان</div>
+                        <div dir="ltr" class="text-base font-bold font-mono text-slate-100 truncate text-right select-all" title="ok.iraj.trsr57d.co.uk">
+                            ok.iraj.trsr57d.co.uk                        </div>
+                        <div dir="ltr" class="text-xs font-mono text-slate-400 flex items-center justify-end gap-1.5 pt-0.5">
+                            <span class="text-slate-300 font-semibold">8443</span>
+                            <span class="text-slate-500">:پورت</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- دکمه‌های اقدام -->
+                <div class="pt-4 border-t border-slate-800/80 flex items-center gap-2">
+                    <a href="tg://proxy?server=ok.iraj.trsr57d.co.uk&amp;port=8443&amp;secret=dd104462821249bd7ac519130220c25d09" 
+                       class="flex-1 flex items-center justify-center gap-1.5 py-2.5 px-3 rounded-xl bg-brand-500/10 hover:bg-brand-500 text-brand-400 hover:text-slate-950 font-bold text-xs transition border border-brand-500/25 active:scale-95">
+                        <span>اتصال به تلگرام</span>
+                        <svg class="w-3.5 h-3.5 rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M14 5l7 7m0 0l-7 7m7-7H3"/></svg>
+                    </a>
+                    
+                    <button class="copy-btn p-2.5 rounded-xl bg-slate-800/80 hover:bg-slate-700 text-slate-300 border border-slate-700/60 transition active:scale-90" title="کپی لینک پروکسی">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
+                    </button>
+
+                    <button class="qr-btn p-2.5 rounded-xl bg-slate-800/80 hover:bg-slate-700 text-slate-300 border border-slate-700/60 transition active:scale-90" title="نمایش بارکد QR">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v1m6 11h2m-6 0h-2v4h2v-4zM6 6h6v6H6V6zm12 0h6v6h-6V6zm-6 12h6v6h-6v-6z"/></svg>
+                    </button>
+                </div>
+            </article>
+                        <article class="proxy-card group flex flex-col justify-between p-5 rounded-2xl bg-surface-card border border-slate-800/80 hover:border-slate-700 transition-all duration-200 hover:shadow-xl hover:shadow-cyan-950/20 relative overflow-hidden backdrop-blur-md is-online"
+                     data-server="1.iraj.trsr57d.co.uk"
+                     data-port="8443"
+                     data-type="mtproto secure"
+                     data-status="online"
+                     data-latency="3073"
+                     data-url="tg://proxy?server=1.iraj.trsr57d.co.uk&amp;port=8443&amp;secret=dd104462821249bd7ac519130220c25d09">
+
+                <div>
+                    <!-- سربرگ کارت -->
+                    <div class="flex items-center justify-between mb-4 gap-2">
+                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-md text-[11px] font-mono font-bold uppercase tracking-wider border text-indigo-400 border-indigo-400/25 bg-indigo-400/10">
+                            MTProto Secure                        </span>
+                        
+                        <div dir="ltr" class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-xs font-mono font-bold bg-orange-500/10 text-orange-400 border-orange-500/20">
+                            <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                            3073 ms                        </div>
+                    </div>
+
+                    <!-- جزییات آدرس سرور -->
+                    <div class="space-y-1 mb-5">
+                        <div class="text-[11px] text-slate-500 font-bold">آدرس سرور میزبان</div>
+                        <div dir="ltr" class="text-base font-bold font-mono text-slate-100 truncate text-right select-all" title="1.iraj.trsr57d.co.uk">
+                            1.iraj.trsr57d.co.uk                        </div>
+                        <div dir="ltr" class="text-xs font-mono text-slate-400 flex items-center justify-end gap-1.5 pt-0.5">
+                            <span class="text-slate-300 font-semibold">8443</span>
+                            <span class="text-slate-500">:پورت</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- دکمه‌های اقدام -->
+                <div class="pt-4 border-t border-slate-800/80 flex items-center gap-2">
+                    <a href="tg://proxy?server=1.iraj.trsr57d.co.uk&amp;port=8443&amp;secret=dd104462821249bd7ac519130220c25d09" 
+                       class="flex-1 flex items-center justify-center gap-1.5 py-2.5 px-3 rounded-xl bg-brand-500/10 hover:bg-brand-500 text-brand-400 hover:text-slate-950 font-bold text-xs transition border border-brand-500/25 active:scale-95">
+                        <span>اتصال به تلگرام</span>
+                        <svg class="w-3.5 h-3.5 rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M14 5l7 7m0 0l-7 7m7-7H3"/></svg>
+                    </a>
+                    
+                    <button class="copy-btn p-2.5 rounded-xl bg-slate-800/80 hover:bg-slate-700 text-slate-300 border border-slate-700/60 transition active:scale-90" title="کپی لینک پروکسی">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
+                    </button>
+
+                    <button class="qr-btn p-2.5 rounded-xl bg-slate-800/80 hover:bg-slate-700 text-slate-300 border border-slate-700/60 transition active:scale-90" title="نمایش بارکد QR">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v1m6 11h2m-6 0h-2v4h2v-4zM6 6h6v6H6V6zm12 0h6v6h-6V6zm-6 12h6v6h-6v-6z"/></svg>
+                    </button>
+                </div>
+            </article>
+                        <article class="proxy-card group flex flex-col justify-between p-5 rounded-2xl bg-surface-card border border-slate-800/80 hover:border-slate-700 transition-all duration-200 hover:shadow-xl hover:shadow-cyan-950/20 relative overflow-hidden backdrop-blur-md is-online"
+                     data-server="max.mishutkin.click"
+                     data-port="443"
+                     data-type="mtproto tls"
+                     data-status="online"
+                     data-latency="3327"
+                     data-url="tg://proxy?server=max.mishutkin.click&amp;port=443&amp;secret=ee94989d74ad055391384d92c3c773c8d264726976652e676f6f676c652e636f6d">
+
+                <div>
+                    <!-- سربرگ کارت -->
+                    <div class="flex items-center justify-between mb-4 gap-2">
+                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-md text-[11px] font-mono font-bold uppercase tracking-wider border text-sky-400 border-sky-400/25 bg-sky-400/10">
+                            MTProto TLS                        </span>
+                        
+                        <div dir="ltr" class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-xs font-mono font-bold bg-orange-500/10 text-orange-400 border-orange-500/20">
+                            <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                            3327 ms                        </div>
+                    </div>
+
+                    <!-- جزییات آدرس سرور -->
+                    <div class="space-y-1 mb-5">
+                        <div class="text-[11px] text-slate-500 font-bold">آدرس سرور میزبان</div>
+                        <div dir="ltr" class="text-base font-bold font-mono text-slate-100 truncate text-right select-all" title="max.mishutkin.click">
+                            max.mishutkin.click                        </div>
+                        <div dir="ltr" class="text-xs font-mono text-slate-400 flex items-center justify-end gap-1.5 pt-0.5">
+                            <span class="text-slate-300 font-semibold">443</span>
+                            <span class="text-slate-500">:پورت</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- دکمه‌های اقدام -->
+                <div class="pt-4 border-t border-slate-800/80 flex items-center gap-2">
+                    <a href="tg://proxy?server=max.mishutkin.click&amp;port=443&amp;secret=ee94989d74ad055391384d92c3c773c8d264726976652e676f6f676c652e636f6d" 
+                       class="flex-1 flex items-center justify-center gap-1.5 py-2.5 px-3 rounded-xl bg-brand-500/10 hover:bg-brand-500 text-brand-400 hover:text-slate-950 font-bold text-xs transition border border-brand-500/25 active:scale-95">
+                        <span>اتصال به تلگرام</span>
+                        <svg class="w-3.5 h-3.5 rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M14 5l7 7m0 0l-7 7m7-7H3"/></svg>
+                    </a>
+                    
+                    <button class="copy-btn p-2.5 rounded-xl bg-slate-800/80 hover:bg-slate-700 text-slate-300 border border-slate-700/60 transition active:scale-90" title="کپی لینک پروکسی">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
+                    </button>
+
+                    <button class="qr-btn p-2.5 rounded-xl bg-slate-800/80 hover:bg-slate-700 text-slate-300 border border-slate-700/60 transition active:scale-90" title="نمایش بارکد QR">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v1m6 11h2m-6 0h-2v4h2v-4zM6 6h6v6H6V6zm12 0h6v6h-6V6zm-6 12h6v6h-6v-6z"/></svg>
+                    </button>
+                </div>
+            </article>
+                        <article class="proxy-card group flex flex-col justify-between p-5 rounded-2xl bg-surface-card border border-slate-800/80 hover:border-slate-700 transition-all duration-200 hover:shadow-xl hover:shadow-cyan-950/20 relative overflow-hidden backdrop-blur-md is-online"
+                     data-server="top.mishutkin.click"
+                     data-port="443"
+                     data-type="mtproto tls"
+                     data-status="online"
+                     data-latency="3548"
+                     data-url="tg://proxy?server=top.mishutkin.click&amp;port=443&amp;secret=ee4b5ba12e11065746126723c1a1baf54d64726976652e676f6f676c652e636f6d">
+
+                <div>
+                    <!-- سربرگ کارت -->
+                    <div class="flex items-center justify-between mb-4 gap-2">
+                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-md text-[11px] font-mono font-bold uppercase tracking-wider border text-sky-400 border-sky-400/25 bg-sky-400/10">
+                            MTProto TLS                        </span>
+                        
+                        <div dir="ltr" class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-xs font-mono font-bold bg-orange-500/10 text-orange-400 border-orange-500/20">
+                            <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                            3548 ms                        </div>
+                    </div>
+
+                    <!-- جزییات آدرس سرور -->
+                    <div class="space-y-1 mb-5">
+                        <div class="text-[11px] text-slate-500 font-bold">آدرس سرور میزبان</div>
+                        <div dir="ltr" class="text-base font-bold font-mono text-slate-100 truncate text-right select-all" title="top.mishutkin.click">
+                            top.mishutkin.click                        </div>
+                        <div dir="ltr" class="text-xs font-mono text-slate-400 flex items-center justify-end gap-1.5 pt-0.5">
+                            <span class="text-slate-300 font-semibold">443</span>
+                            <span class="text-slate-500">:پورت</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- دکمه‌های اقدام -->
+                <div class="pt-4 border-t border-slate-800/80 flex items-center gap-2">
+                    <a href="tg://proxy?server=top.mishutkin.click&amp;port=443&amp;secret=ee4b5ba12e11065746126723c1a1baf54d64726976652e676f6f676c652e636f6d" 
+                       class="flex-1 flex items-center justify-center gap-1.5 py-2.5 px-3 rounded-xl bg-brand-500/10 hover:bg-brand-500 text-brand-400 hover:text-slate-950 font-bold text-xs transition border border-brand-500/25 active:scale-95">
+                        <span>اتصال به تلگرام</span>
+                        <svg class="w-3.5 h-3.5 rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M14 5l7 7m0 0l-7 7m7-7H3"/></svg>
+                    </a>
+                    
+                    <button class="copy-btn p-2.5 rounded-xl bg-slate-800/80 hover:bg-slate-700 text-slate-300 border border-slate-700/60 transition active:scale-90" title="کپی لینک پروکسی">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
+                    </button>
+
+                    <button class="qr-btn p-2.5 rounded-xl bg-slate-800/80 hover:bg-slate-700 text-slate-300 border border-slate-700/60 transition active:scale-90" title="نمایش بارکد QR">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v1m6 11h2m-6 0h-2v4h2v-4zM6 6h6v6H6V6zm12 0h6v6h-6V6zm-6 12h6v6h-6v-6z"/></svg>
+                    </button>
+                </div>
+            </article>
+                        <article class="proxy-card group flex flex-col justify-between p-5 rounded-2xl bg-surface-card border border-slate-800/80 hover:border-slate-700 transition-all duration-200 hover:shadow-xl hover:shadow-cyan-950/20 relative overflow-hidden backdrop-blur-md is-online"
+                     data-server="mobile.mishutkin.click"
+                     data-port="443"
+                     data-type="mtproto tls"
+                     data-status="online"
+                     data-latency="3766"
+                     data-url="tg://proxy?server=mobile.mishutkin.click&amp;port=443&amp;secret=eed052c02f3e13fa55568670fa5df149086d6f62696c652e6d69736875746b696e2e636c69636b">
+
+                <div>
+                    <!-- سربرگ کارت -->
+                    <div class="flex items-center justify-between mb-4 gap-2">
+                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-md text-[11px] font-mono font-bold uppercase tracking-wider border text-sky-400 border-sky-400/25 bg-sky-400/10">
+                            MTProto TLS                        </span>
+                        
+                        <div dir="ltr" class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-xs font-mono font-bold bg-orange-500/10 text-orange-400 border-orange-500/20">
+                            <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                            3766 ms                        </div>
+                    </div>
+
+                    <!-- جزییات آدرس سرور -->
+                    <div class="space-y-1 mb-5">
+                        <div class="text-[11px] text-slate-500 font-bold">آدرس سرور میزبان</div>
+                        <div dir="ltr" class="text-base font-bold font-mono text-slate-100 truncate text-right select-all" title="mobile.mishutkin.click">
+                            mobile.mishutkin.click                        </div>
+                        <div dir="ltr" class="text-xs font-mono text-slate-400 flex items-center justify-end gap-1.5 pt-0.5">
+                            <span class="text-slate-300 font-semibold">443</span>
+                            <span class="text-slate-500">:پورت</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- دکمه‌های اقدام -->
+                <div class="pt-4 border-t border-slate-800/80 flex items-center gap-2">
+                    <a href="tg://proxy?server=mobile.mishutkin.click&amp;port=443&amp;secret=eed052c02f3e13fa55568670fa5df149086d6f62696c652e6d69736875746b696e2e636c69636b" 
+                       class="flex-1 flex items-center justify-center gap-1.5 py-2.5 px-3 rounded-xl bg-brand-500/10 hover:bg-brand-500 text-brand-400 hover:text-slate-950 font-bold text-xs transition border border-brand-500/25 active:scale-95">
+                        <span>اتصال به تلگرام</span>
+                        <svg class="w-3.5 h-3.5 rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M14 5l7 7m0 0l-7 7m7-7H3"/></svg>
+                    </a>
+                    
+                    <button class="copy-btn p-2.5 rounded-xl bg-slate-800/80 hover:bg-slate-700 text-slate-300 border border-slate-700/60 transition active:scale-90" title="کپی لینک پروکسی">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
+                    </button>
+
+                    <button class="qr-btn p-2.5 rounded-xl bg-slate-800/80 hover:bg-slate-700 text-slate-300 border border-slate-700/60 transition active:scale-90" title="نمایش بارکد QR">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v1m6 11h2m-6 0h-2v4h2v-4zM6 6h6v6H6V6zm12 0h6v6h-6V6zm-6 12h6v6h-6v-6z"/></svg>
+                    </button>
+                </div>
+            </article>
+                        <article class="proxy-card group flex flex-col justify-between p-5 rounded-2xl bg-surface-card border border-slate-800/80 hover:border-slate-700 transition-all duration-200 hover:shadow-xl hover:shadow-cyan-950/20 relative overflow-hidden backdrop-blur-md is-online"
+                     data-server="lte.mishutkin.click"
+                     data-port="443"
+                     data-type="mtproto tls"
+                     data-status="online"
+                     data-latency="3811"
+                     data-url="tg://proxy?server=lte.mishutkin.click&amp;port=443&amp;secret=ee67af30bbe3543b32fd7b6966a61417e26c74652e6d69736875746b696e2e636c69636b">
+
+                <div>
+                    <!-- سربرگ کارت -->
+                    <div class="flex items-center justify-between mb-4 gap-2">
+                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-md text-[11px] font-mono font-bold uppercase tracking-wider border text-sky-400 border-sky-400/25 bg-sky-400/10">
+                            MTProto TLS                        </span>
+                        
+                        <div dir="ltr" class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-xs font-mono font-bold bg-orange-500/10 text-orange-400 border-orange-500/20">
+                            <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                            3811 ms                        </div>
+                    </div>
+
+                    <!-- جزییات آدرس سرور -->
+                    <div class="space-y-1 mb-5">
+                        <div class="text-[11px] text-slate-500 font-bold">آدرس سرور میزبان</div>
+                        <div dir="ltr" class="text-base font-bold font-mono text-slate-100 truncate text-right select-all" title="lte.mishutkin.click">
+                            lte.mishutkin.click                        </div>
+                        <div dir="ltr" class="text-xs font-mono text-slate-400 flex items-center justify-end gap-1.5 pt-0.5">
+                            <span class="text-slate-300 font-semibold">443</span>
+                            <span class="text-slate-500">:پورت</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- دکمه‌های اقدام -->
+                <div class="pt-4 border-t border-slate-800/80 flex items-center gap-2">
+                    <a href="tg://proxy?server=lte.mishutkin.click&amp;port=443&amp;secret=ee67af30bbe3543b32fd7b6966a61417e26c74652e6d69736875746b696e2e636c69636b" 
+                       class="flex-1 flex items-center justify-center gap-1.5 py-2.5 px-3 rounded-xl bg-brand-500/10 hover:bg-brand-500 text-brand-400 hover:text-slate-950 font-bold text-xs transition border border-brand-500/25 active:scale-95">
+                        <span>اتصال به تلگرام</span>
+                        <svg class="w-3.5 h-3.5 rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M14 5l7 7m0 0l-7 7m7-7H3"/></svg>
+                    </a>
+                    
+                    <button class="copy-btn p-2.5 rounded-xl bg-slate-800/80 hover:bg-slate-700 text-slate-300 border border-slate-700/60 transition active:scale-90" title="کپی لینک پروکسی">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
+                    </button>
+
+                    <button class="qr-btn p-2.5 rounded-xl bg-slate-800/80 hover:bg-slate-700 text-slate-300 border border-slate-700/60 transition active:scale-90" title="نمایش بارکد QR">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v1m6 11h2m-6 0h-2v4h2v-4zM6 6h6v6H6V6zm12 0h6v6h-6V6zm-6 12h6v6h-6v-6z"/></svg>
+                    </button>
+                </div>
+            </article>
+                        <article class="proxy-card group flex flex-col justify-between p-5 rounded-2xl bg-surface-card border border-slate-800/80 hover:border-slate-700 transition-all duration-200 hover:shadow-xl hover:shadow-cyan-950/20 relative overflow-hidden backdrop-blur-md is-online"
+                     data-server="akenai.tg"
+                     data-port="853"
+                     data-type="mtproto tls"
+                     data-status="online"
+                     data-latency="3867"
+                     data-url="tg://proxy?server=akenai.tg&amp;port=853&amp;secret=ee54ce330e4690cc297d2b031ff3f288b06d742e616b656e61692e636c69636b">
+
+                <div>
+                    <!-- سربرگ کارت -->
+                    <div class="flex items-center justify-between mb-4 gap-2">
+                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-md text-[11px] font-mono font-bold uppercase tracking-wider border text-sky-400 border-sky-400/25 bg-sky-400/10">
+                            MTProto TLS                        </span>
+                        
+                        <div dir="ltr" class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-xs font-mono font-bold bg-orange-500/10 text-orange-400 border-orange-500/20">
+                            <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                            3867 ms                        </div>
+                    </div>
+
+                    <!-- جزییات آدرس سرور -->
+                    <div class="space-y-1 mb-5">
+                        <div class="text-[11px] text-slate-500 font-bold">آدرس سرور میزبان</div>
+                        <div dir="ltr" class="text-base font-bold font-mono text-slate-100 truncate text-right select-all" title="akenai.tg">
+                            akenai.tg                        </div>
+                        <div dir="ltr" class="text-xs font-mono text-slate-400 flex items-center justify-end gap-1.5 pt-0.5">
+                            <span class="text-slate-300 font-semibold">853</span>
+                            <span class="text-slate-500">:پورت</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- دکمه‌های اقدام -->
+                <div class="pt-4 border-t border-slate-800/80 flex items-center gap-2">
+                    <a href="tg://proxy?server=akenai.tg&amp;port=853&amp;secret=ee54ce330e4690cc297d2b031ff3f288b06d742e616b656e61692e636c69636b" 
+                       class="flex-1 flex items-center justify-center gap-1.5 py-2.5 px-3 rounded-xl bg-brand-500/10 hover:bg-brand-500 text-brand-400 hover:text-slate-950 font-bold text-xs transition border border-brand-500/25 active:scale-95">
+                        <span>اتصال به تلگرام</span>
+                        <svg class="w-3.5 h-3.5 rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M14 5l7 7m0 0l-7 7m7-7H3"/></svg>
+                    </a>
+                    
+                    <button class="copy-btn p-2.5 rounded-xl bg-slate-800/80 hover:bg-slate-700 text-slate-300 border border-slate-700/60 transition active:scale-90" title="کپی لینک پروکسی">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
+                    </button>
+
+                    <button class="qr-btn p-2.5 rounded-xl bg-slate-800/80 hover:bg-slate-700 text-slate-300 border border-slate-700/60 transition active:scale-90" title="نمایش بارکد QR">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v1m6 11h2m-6 0h-2v4h2v-4zM6 6h6v6H6V6zm12 0h6v6h-6V6zm-6 12h6v6h-6v-6z"/></svg>
+                    </button>
+                </div>
+            </article>
+                        <article class="proxy-card group flex flex-col justify-between p-5 rounded-2xl bg-surface-card border border-slate-800/80 hover:border-slate-700 transition-all duration-200 hover:shadow-xl hover:shadow-cyan-950/20 relative overflow-hidden backdrop-blur-md is-offline opacity-60 hover:opacity-100"
+                     data-server="iran.antony-gordon.co.uk"
+                     data-port="4455"
+                     data-type="mtproto secure"
+                     data-status="offline"
+                     data-latency="9999"
+                     data-url="tg://proxy?server=iran.antony-gordon.co.uk&amp;port=4455&amp;secret=dd104462821249bd7ac519130220c25d09">
+
+                <div>
+                    <!-- سربرگ کارت -->
+                    <div class="flex items-center justify-between mb-4 gap-2">
+                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-md text-[11px] font-mono font-bold uppercase tracking-wider border text-indigo-400 border-indigo-400/25 bg-indigo-400/10">
+                            MTProto Secure                        </span>
+                        
+                        <div dir="ltr" class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-xs font-mono font-bold bg-rose-500/10 text-rose-400 border-rose-500/20">
+                            <span class="w-1.5 h-1.5 rounded-full bg-rose-400"></span>
+                            قطع                        </div>
+                    </div>
+
+                    <!-- جزییات آدرس سرور -->
+                    <div class="space-y-1 mb-5">
+                        <div class="text-[11px] text-slate-500 font-bold">آدرس سرور میزبان</div>
+                        <div dir="ltr" class="text-base font-bold font-mono text-slate-100 truncate text-right select-all" title="iran.antony-gordon.co.uk">
+                            iran.antony-gordon.co.uk                        </div>
+                        <div dir="ltr" class="text-xs font-mono text-slate-400 flex items-center justify-end gap-1.5 pt-0.5">
+                            <span class="text-slate-300 font-semibold">4455</span>
+                            <span class="text-slate-500">:پورت</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- دکمه‌های اقدام -->
+                <div class="pt-4 border-t border-slate-800/80 flex items-center gap-2">
+                    <a href="tg://proxy?server=iran.antony-gordon.co.uk&amp;port=4455&amp;secret=dd104462821249bd7ac519130220c25d09" 
+                       class="flex-1 flex items-center justify-center gap-1.5 py-2.5 px-3 rounded-xl bg-brand-500/10 hover:bg-brand-500 text-brand-400 hover:text-slate-950 font-bold text-xs transition border border-brand-500/25 active:scale-95">
+                        <span>اتصال به تلگرام</span>
+                        <svg class="w-3.5 h-3.5 rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M14 5l7 7m0 0l-7 7m7-7H3"/></svg>
+                    </a>
+                    
+                    <button class="copy-btn p-2.5 rounded-xl bg-slate-800/80 hover:bg-slate-700 text-slate-300 border border-slate-700/60 transition active:scale-90" title="کپی لینک پروکسی">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
+                    </button>
+
+                    <button class="qr-btn p-2.5 rounded-xl bg-slate-800/80 hover:bg-slate-700 text-slate-300 border border-slate-700/60 transition active:scale-90" title="نمایش بارکد QR">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v1m6 11h2m-6 0h-2v4h2v-4zM6 6h6v6H6V6zm12 0h6v6h-6V6zm-6 12h6v6h-6v-6z"/></svg>
+                    </button>
+                </div>
+            </article>
+                        <article class="proxy-card group flex flex-col justify-between p-5 rounded-2xl bg-surface-card border border-slate-800/80 hover:border-slate-700 transition-all duration-200 hover:shadow-xl hover:shadow-cyan-950/20 relative overflow-hidden backdrop-blur-md is-offline opacity-60 hover:opacity-100"
+                     data-server="ssh.meow0.co.uk"
+                     data-port="22"
+                     data-type="mtproto secure"
+                     data-status="offline"
+                     data-latency="9999"
+                     data-url="tg://proxy?server=ssh.meow0.co.uk&amp;port=22&amp;secret=dd79e344818749bd7ac519130220c25d09">
+
+                <div>
+                    <!-- سربرگ کارت -->
+                    <div class="flex items-center justify-between mb-4 gap-2">
+                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-md text-[11px] font-mono font-bold uppercase tracking-wider border text-indigo-400 border-indigo-400/25 bg-indigo-400/10">
+                            MTProto Secure                        </span>
+                        
+                        <div dir="ltr" class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-xs font-mono font-bold bg-rose-500/10 text-rose-400 border-rose-500/20">
+                            <span class="w-1.5 h-1.5 rounded-full bg-rose-400"></span>
+                            قطع                        </div>
+                    </div>
+
+                    <!-- جزییات آدرس سرور -->
+                    <div class="space-y-1 mb-5">
+                        <div class="text-[11px] text-slate-500 font-bold">آدرس سرور میزبان</div>
+                        <div dir="ltr" class="text-base font-bold font-mono text-slate-100 truncate text-right select-all" title="ssh.meow0.co.uk">
+                            ssh.meow0.co.uk                        </div>
+                        <div dir="ltr" class="text-xs font-mono text-slate-400 flex items-center justify-end gap-1.5 pt-0.5">
+                            <span class="text-slate-300 font-semibold">22</span>
+                            <span class="text-slate-500">:پورت</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- دکمه‌های اقدام -->
+                <div class="pt-4 border-t border-slate-800/80 flex items-center gap-2">
+                    <a href="tg://proxy?server=ssh.meow0.co.uk&amp;port=22&amp;secret=dd79e344818749bd7ac519130220c25d09" 
+                       class="flex-1 flex items-center justify-center gap-1.5 py-2.5 px-3 rounded-xl bg-brand-500/10 hover:bg-brand-500 text-brand-400 hover:text-slate-950 font-bold text-xs transition border border-brand-500/25 active:scale-95">
+                        <span>اتصال به تلگرام</span>
+                        <svg class="w-3.5 h-3.5 rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M14 5l7 7m0 0l-7 7m7-7H3"/></svg>
+                    </a>
+                    
+                    <button class="copy-btn p-2.5 rounded-xl bg-slate-800/80 hover:bg-slate-700 text-slate-300 border border-slate-700/60 transition active:scale-90" title="کپی لینک پروکسی">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
+                    </button>
+
+                    <button class="qr-btn p-2.5 rounded-xl bg-slate-800/80 hover:bg-slate-700 text-slate-300 border border-slate-700/60 transition active:scale-90" title="نمایش بارکد QR">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v1m6 11h2m-6 0h-2v4h2v-4zM6 6h6v6H6V6zm12 0h6v6h-6V6zm-6 12h6v6h-6v-6z"/></svg>
+                    </button>
+                </div>
+            </article>
+                        <article class="proxy-card group flex flex-col justify-between p-5 rounded-2xl bg-surface-card border border-slate-800/80 hover:border-slate-700 transition-all duration-200 hover:shadow-xl hover:shadow-cyan-950/20 relative overflow-hidden backdrop-blur-md is-offline opacity-60 hover:opacity-100"
+                     data-server="gram.blog"
+                     data-port="853"
+                     data-type="mtproto tls"
+                     data-status="offline"
+                     data-latency="9999"
+                     data-url="tg://proxy?server=gram.blog&amp;port=853&amp;secret=ee695c0e4188358e4ebb6d7a489185f6a96d742e6772616d2e796f75">
+
+                <div>
+                    <!-- سربرگ کارت -->
+                    <div class="flex items-center justify-between mb-4 gap-2">
+                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-md text-[11px] font-mono font-bold uppercase tracking-wider border text-sky-400 border-sky-400/25 bg-sky-400/10">
+                            MTProto TLS                        </span>
+                        
+                        <div dir="ltr" class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-xs font-mono font-bold bg-rose-500/10 text-rose-400 border-rose-500/20">
+                            <span class="w-1.5 h-1.5 rounded-full bg-rose-400"></span>
+                            قطع                        </div>
+                    </div>
+
+                    <!-- جزییات آدرس سرور -->
+                    <div class="space-y-1 mb-5">
+                        <div class="text-[11px] text-slate-500 font-bold">آدرس سرور میزبان</div>
+                        <div dir="ltr" class="text-base font-bold font-mono text-slate-100 truncate text-right select-all" title="gram.blog">
+                            gram.blog                        </div>
+                        <div dir="ltr" class="text-xs font-mono text-slate-400 flex items-center justify-end gap-1.5 pt-0.5">
+                            <span class="text-slate-300 font-semibold">853</span>
+                            <span class="text-slate-500">:پورت</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- دکمه‌های اقدام -->
+                <div class="pt-4 border-t border-slate-800/80 flex items-center gap-2">
+                    <a href="tg://proxy?server=gram.blog&amp;port=853&amp;secret=ee695c0e4188358e4ebb6d7a489185f6a96d742e6772616d2e796f75" 
+                       class="flex-1 flex items-center justify-center gap-1.5 py-2.5 px-3 rounded-xl bg-brand-500/10 hover:bg-brand-500 text-brand-400 hover:text-slate-950 font-bold text-xs transition border border-brand-500/25 active:scale-95">
+                        <span>اتصال به تلگرام</span>
+                        <svg class="w-3.5 h-3.5 rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M14 5l7 7m0 0l-7 7m7-7H3"/></svg>
+                    </a>
+                    
+                    <button class="copy-btn p-2.5 rounded-xl bg-slate-800/80 hover:bg-slate-700 text-slate-300 border border-slate-700/60 transition active:scale-90" title="کپی لینک پروکسی">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
+                    </button>
+
+                    <button class="qr-btn p-2.5 rounded-xl bg-slate-800/80 hover:bg-slate-700 text-slate-300 border border-slate-700/60 transition active:scale-90" title="نمایش بارکد QR">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v1m6 11h2m-6 0h-2v4h2v-4zM6 6h6v6H6V6zm12 0h6v6h-6V6zm-6 12h6v6h-6v-6z"/></svg>
+                    </button>
+                </div>
+            </article>
+                        <article class="proxy-card group flex flex-col justify-between p-5 rounded-2xl bg-surface-card border border-slate-800/80 hover:border-slate-700 transition-all duration-200 hover:shadow-xl hover:shadow-cyan-950/20 relative overflow-hidden backdrop-blur-md is-offline opacity-60 hover:opacity-100"
+                     data-server="mtproxygram.lol"
+                     data-port="853"
+                     data-type="mtproto tls"
+                     data-status="offline"
+                     data-latency="9999"
+                     data-url="tg://proxy?server=mtproxygram.lol&amp;port=853&amp;secret=ee608f40eb7d1aad1fbc6405c5ed2669616d742e6d7470726f78796772616d2e6f6e6c696e65">
+
+                <div>
+                    <!-- سربرگ کارت -->
+                    <div class="flex items-center justify-between mb-4 gap-2">
+                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-md text-[11px] font-mono font-bold uppercase tracking-wider border text-sky-400 border-sky-400/25 bg-sky-400/10">
+                            MTProto TLS                        </span>
+                        
+                        <div dir="ltr" class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-xs font-mono font-bold bg-rose-500/10 text-rose-400 border-rose-500/20">
+                            <span class="w-1.5 h-1.5 rounded-full bg-rose-400"></span>
+                            قطع                        </div>
+                    </div>
+
+                    <!-- جزییات آدرس سرور -->
+                    <div class="space-y-1 mb-5">
+                        <div class="text-[11px] text-slate-500 font-bold">آدرس سرور میزبان</div>
+                        <div dir="ltr" class="text-base font-bold font-mono text-slate-100 truncate text-right select-all" title="mtproxygram.lol">
+                            mtproxygram.lol                        </div>
+                        <div dir="ltr" class="text-xs font-mono text-slate-400 flex items-center justify-end gap-1.5 pt-0.5">
+                            <span class="text-slate-300 font-semibold">853</span>
+                            <span class="text-slate-500">:پورت</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- دکمه‌های اقدام -->
+                <div class="pt-4 border-t border-slate-800/80 flex items-center gap-2">
+                    <a href="tg://proxy?server=mtproxygram.lol&amp;port=853&amp;secret=ee608f40eb7d1aad1fbc6405c5ed2669616d742e6d7470726f78796772616d2e6f6e6c696e65" 
+                       class="flex-1 flex items-center justify-center gap-1.5 py-2.5 px-3 rounded-xl bg-brand-500/10 hover:bg-brand-500 text-brand-400 hover:text-slate-950 font-bold text-xs transition border border-brand-500/25 active:scale-95">
+                        <span>اتصال به تلگرام</span>
+                        <svg class="w-3.5 h-3.5 rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M14 5l7 7m0 0l-7 7m7-7H3"/></svg>
+                    </a>
+                    
+                    <button class="copy-btn p-2.5 rounded-xl bg-slate-800/80 hover:bg-slate-700 text-slate-300 border border-slate-700/60 transition active:scale-90" title="کپی لینک پروکسی">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
+                    </button>
+
+                    <button class="qr-btn p-2.5 rounded-xl bg-slate-800/80 hover:bg-slate-700 text-slate-300 border border-slate-700/60 transition active:scale-90" title="نمایش بارکد QR">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v1m6 11h2m-6 0h-2v4h2v-4zM6 6h6v6H6V6zm12 0h6v6h-6V6zm-6 12h6v6h-6v-6z"/></svg>
+                    </button>
+                </div>
+            </article>
+                        <article class="proxy-card group flex flex-col justify-between p-5 rounded-2xl bg-surface-card border border-slate-800/80 hover:border-slate-700 transition-all duration-200 hover:shadow-xl hover:shadow-cyan-950/20 relative overflow-hidden backdrop-blur-md is-offline opacity-60 hover:opacity-100"
+                     data-server="Hel-hi.co.uk."
+                     data-port="443"
+                     data-type="mtproto tls"
+                     data-status="offline"
+                     data-latency="9999"
+                     data-url="tg://proxy?server=Hel-hi.co.uk.&amp;port=443&amp;secret=eef0eeb0bd9adc4fd4a93994ee3b2a216b63646e2e79656b74616e65742e636f6d">
+
+                <div>
+                    <!-- سربرگ کارت -->
+                    <div class="flex items-center justify-between mb-4 gap-2">
+                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-md text-[11px] font-mono font-bold uppercase tracking-wider border text-sky-400 border-sky-400/25 bg-sky-400/10">
+                            MTProto TLS                        </span>
+                        
+                        <div dir="ltr" class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-xs font-mono font-bold bg-rose-500/10 text-rose-400 border-rose-500/20">
+                            <span class="w-1.5 h-1.5 rounded-full bg-rose-400"></span>
+                            قطع                        </div>
+                    </div>
+
+                    <!-- جزییات آدرس سرور -->
+                    <div class="space-y-1 mb-5">
+                        <div class="text-[11px] text-slate-500 font-bold">آدرس سرور میزبان</div>
+                        <div dir="ltr" class="text-base font-bold font-mono text-slate-100 truncate text-right select-all" title="Hel-hi.co.uk.">
+                            Hel-hi.co.uk.                        </div>
+                        <div dir="ltr" class="text-xs font-mono text-slate-400 flex items-center justify-end gap-1.5 pt-0.5">
+                            <span class="text-slate-300 font-semibold">443</span>
+                            <span class="text-slate-500">:پورت</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- دکمه‌های اقدام -->
+                <div class="pt-4 border-t border-slate-800/80 flex items-center gap-2">
+                    <a href="tg://proxy?server=Hel-hi.co.uk.&amp;port=443&amp;secret=eef0eeb0bd9adc4fd4a93994ee3b2a216b63646e2e79656b74616e65742e636f6d" 
+                       class="flex-1 flex items-center justify-center gap-1.5 py-2.5 px-3 rounded-xl bg-brand-500/10 hover:bg-brand-500 text-brand-400 hover:text-slate-950 font-bold text-xs transition border border-brand-500/25 active:scale-95">
+                        <span>اتصال به تلگرام</span>
+                        <svg class="w-3.5 h-3.5 rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M14 5l7 7m0 0l-7 7m7-7H3"/></svg>
+                    </a>
+                    
+                    <button class="copy-btn p-2.5 rounded-xl bg-slate-800/80 hover:bg-slate-700 text-slate-300 border border-slate-700/60 transition active:scale-90" title="کپی لینک پروکسی">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
+                    </button>
+
+                    <button class="qr-btn p-2.5 rounded-xl bg-slate-800/80 hover:bg-slate-700 text-slate-300 border border-slate-700/60 transition active:scale-90" title="نمایش بارکد QR">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v1m6 11h2m-6 0h-2v4h2v-4zM6 6h6v6H6V6zm12 0h6v6h-6V6zm-6 12h6v6h-6v-6z"/></svg>
+                    </button>
+                </div>
+            </article>
+                        <article class="proxy-card group flex flex-col justify-between p-5 rounded-2xl bg-surface-card border border-slate-800/80 hover:border-slate-700 transition-all duration-200 hover:shadow-xl hover:shadow-cyan-950/20 relative overflow-hidden backdrop-blur-md is-offline opacity-60 hover:opacity-100"
+                     data-server="all3.beshdash.ir"
+                     data-port="20200"
+                     data-type="mtproto"
+                     data-status="offline"
+                     data-latency="9999"
+                     data-url="tg://proxy?server=all3.beshdash.ir&amp;port=20200&amp;secret=389824d0b51ba5defc3b645cebf65ec3">
+
+                <div>
+                    <!-- سربرگ کارت -->
+                    <div class="flex items-center justify-between mb-4 gap-2">
+                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-md text-[11px] font-mono font-bold uppercase tracking-wider border text-slate-400 border-slate-700 bg-slate-800/50">
+                            MTProto                        </span>
+                        
+                        <div dir="ltr" class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-xs font-mono font-bold bg-rose-500/10 text-rose-400 border-rose-500/20">
+                            <span class="w-1.5 h-1.5 rounded-full bg-rose-400"></span>
+                            قطع                        </div>
+                    </div>
+
+                    <!-- جزییات آدرس سرور -->
+                    <div class="space-y-1 mb-5">
+                        <div class="text-[11px] text-slate-500 font-bold">آدرس سرور میزبان</div>
+                        <div dir="ltr" class="text-base font-bold font-mono text-slate-100 truncate text-right select-all" title="all3.beshdash.ir">
+                            all3.beshdash.ir                        </div>
+                        <div dir="ltr" class="text-xs font-mono text-slate-400 flex items-center justify-end gap-1.5 pt-0.5">
+                            <span class="text-slate-300 font-semibold">20200</span>
+                            <span class="text-slate-500">:پورت</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- دکمه‌های اقدام -->
+                <div class="pt-4 border-t border-slate-800/80 flex items-center gap-2">
+                    <a href="tg://proxy?server=all3.beshdash.ir&amp;port=20200&amp;secret=389824d0b51ba5defc3b645cebf65ec3" 
+                       class="flex-1 flex items-center justify-center gap-1.5 py-2.5 px-3 rounded-xl bg-brand-500/10 hover:bg-brand-500 text-brand-400 hover:text-slate-950 font-bold text-xs transition border border-brand-500/25 active:scale-95">
+                        <span>اتصال به تلگرام</span>
+                        <svg class="w-3.5 h-3.5 rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M14 5l7 7m0 0l-7 7m7-7H3"/></svg>
+                    </a>
+                    
+                    <button class="copy-btn p-2.5 rounded-xl bg-slate-800/80 hover:bg-slate-700 text-slate-300 border border-slate-700/60 transition active:scale-90" title="کپی لینک پروکسی">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
+                    </button>
+
+                    <button class="qr-btn p-2.5 rounded-xl bg-slate-800/80 hover:bg-slate-700 text-slate-300 border border-slate-700/60 transition active:scale-90" title="نمایش بارکد QR">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v1m6 11h2m-6 0h-2v4h2v-4zM6 6h6v6H6V6zm12 0h6v6h-6V6zm-6 12h6v6h-6v-6z"/></svg>
+                    </button>
+                </div>
+            </article>
+                    </div>
+
+    </main>
+
+    <!-- مودال بارکد QR -->
+    <div id="qr-modal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md opacity-0 pointer-events-none transition-all duration-200">
+        <div class="modal-box bg-slate-900 border border-slate-700/80 w-full max-w-sm rounded-3xl p-6 text-center shadow-2xl scale-95 transition-transform duration-200 space-y-5">
+            <div class="flex items-center justify-between pb-2 border-b border-slate-800">
+                <h3 class="text-xs font-bold text-slate-300">اسکن و اتصال سریع</h3>
+                <button id="modal-close-x" class="text-slate-400 hover:text-white p-1">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                </button>
+            </div>
+            
+            <div class="bg-white p-3.5 rounded-2xl mx-auto w-fit shadow-inner">
+                <div id="qrcode"></div>
+            </div>
+
+            <p class="text-xs text-slate-400 leading-relaxed">دوربین موبایل یا اسکنر تلگرام خود را مقابل این بارکد بگیرید تا پروکسی بلافاصله تنظیم شود.</p>
+            
+            <button id="close-modal" class="w-full py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold transition">
+                بستن پنجره
+            </button>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const grid = document.getElementById('proxy-grid');
+            const searchInput = document.getElementById('proxy-search');
+            const cards = Array.from(document.querySelectorAll('.proxy-card'));
+            const visibleCountEl = document.getElementById('visible-count');
+            const filterButtons = document.querySelectorAll('.filter-btn');
+
+            let activeFilter = 'all';
+
+            // سیستم پیام موقت (Toast)
+            const toast = document.getElementById('toast');
+            const toastMsg = document.getElementById('toast-msg');
+            let toastTimer = null;
+            function showToast(message) {
+                toastMsg.textContent = message;
+                toast.classList.remove('opacity-0', 'pointer-events-none', 'translate-y-20');
+                clearTimeout(toastTimer);
+                toastTimer = setTimeout(() => {
+                    toast.classList.add('opacity-0', 'pointer-events-none', 'translate-y-20');
+                }, 2200);
+            }
+
+            // فیلتر آنی سرورها
+            function filterCards() {
+                const term = searchInput.value.trim().toLowerCase();
+                let count = 0;
+
+                cards.forEach(card => {
+                    const matchesSearch = card.dataset.server.toLowerCase().includes(term) || 
+                                          card.dataset.port.includes(term) ||
+                                          card.dataset.type.includes(term);
+
+                    let matchesCategory = true;
+                    if (activeFilter === 'online') {
+                        matchesCategory = card.dataset.status === 'online';
+                    } else if (activeFilter === 'tls') {
+                        matchesCategory = card.dataset.type.includes('tls');
+                    }
+
+                    if (matchesSearch && matchesCategory) {
+                        card.style.display = '';
+                        count++;
+                    } else {
+                        card.style.display = 'none';
+                    }
+                });
+
+                visibleCountEl.textContent = count;
+            }
+
+            searchInput.addEventListener('input', filterCards);
+
+            // تغییر فیلترهای بالا
+            filterButtons.forEach(btn => {
+                btn.addEventListener('click', () => {
+                    filterButtons.forEach(b => {
+                        b.classList.remove('active-filter', 'bg-brand-500/20', 'text-brand-400');
+                        b.classList.add('text-slate-400');
+                    });
+                    btn.classList.add('active-filter', 'bg-brand-500/20', 'text-brand-400');
+                    btn.classList.remove('text-slate-400');
+                    activeFilter = btn.dataset.filter;
+                    filterCards();
+                });
+            });
+
+            document.querySelector('.filter-btn[data-filter="all"]').classList.add('bg-brand-500/20', 'text-brand-400');
+
+            // کپی لینک تک کارت
+            grid.addEventListener('click', (e) => {
+                const copyBtn = e.target.closest('.copy-btn');
+                if (!copyBtn) return;
+                
+                const card = copyBtn.closest('.proxy-card');
+                const url = card.dataset.url;
+
+                navigator.clipboard.writeText(url).then(() => {
+                    showToast('لینک پروکسی در کلیپ‌بورد کپی شد');
+                    const original = copyBtn.innerHTML;
+                    copyBtn.innerHTML = `<svg class="w-4 h-4 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>`;
+                    setTimeout(() => copyBtn.innerHTML = original, 1500);
+                });
+            });
+
+            // ساخت و نمایش QR کد
+            const modal = document.getElementById('qr-modal');
+            const qrWrapper = document.getElementById('qrcode');
+
+            grid.addEventListener('click', (e) => {
+                const qrBtn = e.target.closest('.qr-btn');
+                if (!qrBtn) return;
+
+                const card = qrBtn.closest('.proxy-card');
+                const url = card.dataset.url;
+
+                qrWrapper.innerHTML = '';
+                new QRCode(qrWrapper, {
+                    text: url,
+                    width: 180,
+                    height: 180,
+                    colorDark: '#090d16',
+                    colorLight: '#ffffff',
+                    correctLevel: QRCode.CorrectLevel.M
+                });
+
+                modal.classList.remove('opacity-0', 'pointer-events-none');
+                modal.querySelector('.modal-box').classList.remove('scale-95');
+            });
+
+            const closeModal = () => {
+                modal.classList.add('opacity-0', 'pointer-events-none');
+                modal.querySelector('.modal-box').classList.add('scale-95');
+            };
+
+            document.getElementById('close-modal').addEventListener('click', closeModal);
+            document.getElementById('modal-close-x').addEventListener('click', closeModal);
+            modal.addEventListener('click', (e) => { if (e.target === modal) closeModal(); });
+
+            // کپی همگانی لینک‌ها
+            document.getElementById('export-clipboard-btn').addEventListener('click', () => {
+                const onlineCards = cards.filter(c => c.dataset.status === 'online');
+                if (onlineCards.length === 0) {
+                    showToast('پروکسی آنلاینی برای استخراج وجود ندارد');
+                    return;
+                }
+                const text = onlineCards.map(c => c.dataset.url).join("\n");
+                navigator.clipboard.writeText(text).then(() => {
+                    showToast(`${onlineCards.length} پروکسی فعال کپی شد`);
+                });
+            });
+
+            // خروجی فایل JSON
+            document.getElementById('download-json-btn').addEventListener('click', () => {
+                const list = cards.map(c => ({
+                    server: c.dataset.server,
+                    port: parseInt(c.dataset.port),
+                    type: c.dataset.type,
+                    status: c.dataset.status,
+                    latency: c.dataset.latency !== '9999' ? parseInt(c.dataset.latency) : null,
+                    url: c.dataset.url
+                }));
+                const blob = new Blob([JSON.stringify(list, null, 2)], { type: 'application/json;charset=utf-8' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `proxies-${Date.now()}.json`;
+                a.click();
+                URL.revokeObjectURL(url);
+                showToast('فایل JSON با موفقیت دریافت شد');
+            });
+
+            // زمان نسبی فارسی
+            const timeEl = document.getElementById('time-ago');
+            const scanTimestamp = parseInt(timeEl.dataset.timestamp, 10) * 1000;
+
+            function updateTimeAgo() {
+                if (!scanTimestamp) {
+                    timeEl.textContent = 'نامشخص';
+                    return;
+                }
+                const diff = Math.floor((Date.now() - scanTimestamp) / 1000);
+                if (diff < 30) return timeEl.textContent = 'هم‌اکنون';
+                if (diff < 60) return timeEl.textContent = `${diff} ثانیه پیش`;
+                if (diff < 3600) return timeEl.textContent = `${Math.floor(diff / 60)} دقیقه پیش`;
+                if (diff < 86400) return timeEl.textContent = `${Math.floor(diff / 3600)} ساعت پیش`;
+                timeEl.textContent = `${Math.floor(diff / 86400)} روز پیش`;
+            }
+            updateTimeAgo();
+            setInterval(updateTimeAgo, 30000);
+        });
+    </script>
+</body>
+</html>
